@@ -2084,8 +2084,8 @@ d-appendix > distill-appendix {
     return `
   <div class="byline grid">
     <div class="authors-affiliations grid">
-      <h3>Authors</h3>
-      <h3>Affiliations</h3>
+      <h3>Author</h3>
+      <h3>Affiliation</h3>
       ${frontMatter.authors.map(author => `
         <p class="author">
           ${author.personalURL ? `
@@ -2101,15 +2101,13 @@ d-appendix > distill-appendix {
     </div>
     <div>
       <h3>Published</h3>
-      ${frontMatter.publishedDate ? `
-        <p>${frontMatter.publishedMonth} ${frontMatter.publishedDay}, ${frontMatter.publishedYear}</p> ` : `
-        <p><em>Not published yet.</em></p>`}
+      <p>3rd January 2022</p>
     </div>
     <div>
-      <h3>DOI</h3>
+      <h3></h3>
       ${frontMatter.doi ? `
         <p><a href="https://doi.org/${frontMatter.doi}">${frontMatter.doi}</a></p>` : `
-        <p><em>No DOI yet.</em></p>`}
+        <p><em></em></p>`}
     </div>
   </div>
 `;
@@ -4356,7 +4354,7 @@ d-footnote-list a.footnote-backlink {
 
 </style>
 
-<h3>Footnotes</h3>
+<h3>References</h3>
 <ol></ol>
 `, false);
 

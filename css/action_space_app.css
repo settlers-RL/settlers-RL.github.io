@@ -1,0 +1,109 @@
+.action_head_rect_active {
+	fill: #ffd9f9;
+	stroke: #631553;
+  	stroke-width: 1px;
+}
+.lstm_output{
+	fill: #f2d48f;
+	stroke: #d49b17;
+	stroke-width: 1px;
+}
+.head_text {
+	font: 14px georgia;
+}
+.action_output {
+	fill: #b8beff;
+	stroke: #1a1d40;
+  	stroke-width: 1px;
+}
+
+.active_path {
+	stroke: black;
+	stroke-width: 1px;
+	fill: none;
+}
+.inactive_mask {
+	fill: #fcaeba;
+	stroke: #851022;
+	stroke-width: 1px;
+}
+
+.active_mask {
+	fill: #fcaeba;
+	stroke: #851022;
+	stroke-width: 3px;
+}
+
+.mask_text {
+	font: 10px georgia;
+}
+
+.output_text {
+	font: 12px georgia;
+}
+
+.relative {
+ padding: 10px;
+ position: relative;
+ background-color: #fff;
+ margin: 10px;
+ font-size: 12px;
+} 
+
+.action_space_button {
+  width: 200px;
+  height: 50px;
+  display: inline-block;
+  text-align: center;
+  border: 1px solid gray;
+  background-color: #bee6f7;
+  color: black;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.logit {
+	fill: green;
+	stroke: black;
+	stroke-width: 1px;
+}
+
+.corner_circle {
+	fill: steelblue;
+	stroke: black;
+	stroke-width: 1px;
+}
+
+.corner_logit_lines {
+	stroke: black;
+	stroke-width: 1px;
+	opacity: 0.3;
+	stroke-dasharray: 1;
+}
+
+.edge_logit_lines {
+	stroke: black;
+	stroke-width: 1px;
+	opacity: 0.3;
+	stroke-dasharray: 1;
+}
+
+.tile_logit_lines {
+	stroke: black;
+	stroke-width: 1px;
+	opacity: 0.3;
+	stroke-dasharray: 1;
+}
+
+.player_circle {
+	stroke: black;
+	stroke-width: 1px;
+}
+
+.playercircle_text {
+	font: 10px georgia;
+}
+
+.curr_res_text {
+	font: 10px georgia;
+}

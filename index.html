@@ -5,6 +5,10 @@
 
 <title>Settlers of Catan Reinforcement Learning</title>
 
+<link rel="stylesheet" href="css/action_space_app.css">
+
+<script src="js/d3.v7.min.js"></script>
+
 <style>
     .subgrid {
   grid-column: screen; 
@@ -474,6 +478,7 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   </head>
   
   <body>
+
   <d-front-matter>
     <script type="text/json">
       {
@@ -506,11 +511,12 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   </d-front-matter>
   
   <d-title>
-	<h1><center>Learning to Play Settlers of Catan with Deep RL</center></h1>
+	<h1><center>Learning to Play Settlers of Catan with Deep Reinforcement Learning</center></h1>
 	<figure class="l-body">
     <img src="images/simulator_preview.png"></img>
 	<figcaption><center>Screenshot of the Settlers-RL simulator built for this project.</center></figcaption>
   </figure>
+
   </d-title>
   
   <dt-byline></dt-byline>
@@ -521,46 +527,85 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
       <nav class="l-text figcaption">
         <h3>Contents</h3>
         <div><a href="#introduction">Introduction</a></div>
-        <div><a href="#coinrun">Our CoinRun model</a></div>
-        <div><a href="#analysis">Model analysis</a></div>
+        <div><a href="#build-simulator">Building the Simulator</a></div>
         <ul>
-          <li><a href="#dissecting-failure">Dissecting failure</a></li>
-          <li><a href="#hallucinations">Hallucinations</a></li>
-          <li><a href="#model-editing">Model editing</a></li>
+          <li><a href="#types-of-action">Types of Action</a></li>
         </ul>
-        <div><a href="#diversity-hypothesis">The diversity hypothesis</a></div>
-        <div><a href="#feature-visualization">Feature visualization</a></div>
-        <div><a href="#attribution">Attribution</a></div>
-        <div><a href="#questions">Questions for further research</a></div>
+        <div><a href="#action-space">Dealing with the Action Space</a></div>
+		<div><a href="#code">Code</a></div>
       </nav>
     </d-contents>
 
-  
+  <div>
   <h2 id="introduction">Introduction</h2>
   <p class="l-middle">
-  At the beginning of 2021, just after the announcement of another lockdown in the UK, I decided I needed a new side-project to work on. As a way to teach myself about RL, a couple of years ago I built a simulator and trained an agent<d-cite key="henrybig2"></d-cite> to play the card game 
+  At the beginning of 2021, just after the announcement of another lockdown in the UK, I decided I needed a new side-project to work on. As a way to teach myself about RL, a couple of years ago I built a simulator and trained an agent<d-footnote><a href="https://arxiv.org/abs/1808.10442" target="_blank">"Application of Self-Play Reinforcement Learning to a Four-Player Game of Imperfect Information"</a> - Henry Charlesworth (2018) (<a href="https://github.com/henrycharlesworth/big2_PPOalgorithm">Code</a>)</d-footnote> to play the card game 
   "Big 2", a reasonably complex four-player game of imperfect information. This worked surprisingly well, and having spent the intervening years carrying out research in RL (as a postdoc and now as a research scientist at Rowden Technologies) I thought that I'd like to try something more challenging still. In recent years RL has attracted a lot of attention
-  due to the extremely impressive results that have been achieved in applying RL to games such as Go<d-cite key="Silver2017"></d-cite>, DOTA 2<d-cite key="openai2019dota"></d-cite> and Starcraft 2<d-cite key="Vinyals2019"></d-cite>. However, all of these projects required huge teams of world class researchers/software engineers and 
+  due to the extremely impressive results that have been achieved in applying RL to games such as Go<d-footnote><a href="https://deepmind.com/blog/article/alphago-zero-starting-scratch" target="_blank">"AlphaGo Zero"</a> - DeepMind (2017)</d-footnote> , DOTA 2<d-footnote><a href="https://openai.com/five/" target="_blank">"OpenAI Five"</a> - OpenAI (2016-2019)</d-footnote> and Starcraft 2<d-footnote><a href="https://deepmind.com/blog/article/alphastar-mastering-real-time-strategy-game-starcraft-ii" target="_blank">"AlphaStar"</a> - DeepMind (2019)</d-footnote>. However, all of these projects required huge teams of world class researchers/software engineers and 
   tens of millions of dollars worth of compute power - meaning that attempting to solve anything of comparable complexity as an individual researcher working on a beefy (but still single) desktop PC is pretty unlikely to get very far! On the other hand, so much RL research these days is carried out on relatively simple environments
-  (at least in terms of the structure of their state/action spaces), which can sometimes get a bit boring in my view, and so I definitely wanted to look at something different.</p>
+  (at least in terms of the structure of their state/action spaces), which can sometimes get a bit boring in my view, and so I wanted a different kind of challenge.</p>
 
  <p class="l-middle">
-  I ended up deciding that an interesting game to try would be <a href="https://www.catan.com/" target="_blank">"Settlers of Catan"</a> - a hugely popular board game that has sold over 35 million copies worldwide and which I personally enjoy playing with friends.
-  This is a game with a complex state/action space, as well as being a 4-player game with some hidden information, and quite substantially more complex than Big 2. This makes it a serious challenge, however it is still significantly more accessible than an RTS like Starcraft 2, and so I thought it might be possible to make some progress. This article/post is a detailed dive into the approach I took and the results I was able to achieve.
+  I ended up deciding that an interesting game to try would be <a href="https://www.catan.com/" target="_blank">"Settlers of Catan"</a> - a hugely popular board game that has sold over 35 million copies worldwide that I personally enjoy playing with friends.
+  This is a game with a complex state/action space (placing roads/settlements, playing development cards, trading/exchanging resources etc), as well as being a 4-player game with some hidden information, and quite substantially more complex than Big 2. This makes it a serious challenge, however it is still significantly more accessible than an RTS like Starcraft 2, and so I thought it was perhaps possible that I could make some progress. 
+  This article is a detailed dive into the approach I took and the results I was able to achieve, and will hopefully offer some useful insights for anyone interested in applying RL to a comparable environment.
   
   </p>
   
+  <p class="l-middle">
+  Before we get going, it is worth pointing out that others have made some attempts to apply RL to Settlers of Catan. However, as far as I'm aware these all either required the use of some pre-defined heuristics <d-footnote><a href="https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.561.6293&rep=rep1&type=pdf" target="_blank">"Reinforcement Learning of Strategies for Settlers of Catan"</a> - Michael Pfeiffer (2004) - non-deep RL approach, relies on heuristics/ human knowledge.</d-footnote> or did not consider the full four-player game with trading <d-footnote><a href="https://arxiv.org/pdf/2008.07079.pdf" target="_blank">"Playing Catan with Cross-dimensional Neural Network"</a> - Quentin Gendre and Tomoyuki Kaneko (2020) - uses deep RL, but limits itself to 2 players without trading</d-footnote>
+  <d-footnote><a href="https://hal.archives-ouvertes.fr/hal-02124411/document" target="_blank">"Deep Reinforcement Learning in Strategic Board Game Environments"</a> - Konstantia Xenou et al. (2014) - uses DQN, but agent only acts when accepting/proposing a trade, otherwise uses the JSettlers agent to make other decisions.</d-footnote>. I believe this is the first time someone has tried the learning the full game (with four players) from scratch (although even if it isn't - this was a fun project to work on anyway!)
+  </p>
+  
+  </div>
+  
   <h2 id="build-simulator">Building a Simulator</h2>
   
-  
+  <p class="l-middle">
+    Blah blah
+  </p>
+
+  <h2 id="action-space">Dealing with the Action Space</h2>
+
+  <div class="l-screen">
+    <svg id="action-space-app" width="100%" height="100%" viewBox="0 0 1500 450" preserveAspectRato="xMinYMin">
+    </svg>
+  </div>
+  <div class="l-screen relative">
+    <center><b>Action types: </b><input type="checkbox" id="placeSettlementCheckbox" onclick="updateActionTypeMasks();" checked> Place Settlement
+  <input type="checkbox" id="placeRoadCheckbox" onclick="updateActionTypeMasks();" checked> Place Road
+  <input type="checkbox" id="upgradeToCityCheckbox" onclick="updateActionTypeMasks();" checked> Upgrade to City
+  <input type="checkbox" id="buyDevelopmentCheckbox" onclick="updateActionTypeMasks();" checked> Buy Development Card
+  <input type="checkbox" id="playDevelopmentCardCheckbox" onclick="updateActionTypeMasks();" checked> Play Development Card
+  <input type="checkbox" id="exchangeResourceCheckbox" onclick="updateActionTypeMasks();" checked> Exchange Resource
+  <input type="checkbox" id="proposeTradeCheckbox" onclick="updateActionTypeMasks();" checked> Propose Trade
+  <input type="checkbox" id="respondToTradeCheckbox" onclick="updateActionTypeMasks();" checked> Respond To Trade
+  <input type="checkbox" id="moveRobberCheckbox" onclick="updateActionTypeMasks();" checked> Move Robber
+  <input type="checkbox" id="rollDiceCheckbox" onclick="updateActionTypeMasks();" checked> Roll Dice
+  <input type="checkbox" id="endTurnCheckbox" onclick="updateActionTypeMasks();" checked> End Turn
+  <input type="checkbox" id="stealResourceCheckbox" onclick="updateActionTypeMasks();" checked> Steal Resource<br/>
+  <button onclick="sample_action();" class="action_space_button">Sample Action</button>
+  <button onclick="resetView();" class="action_space_button">Reset View</button>
+  <button onclick="zoomIn();" class="action_space_button">Zoom In</button>
+  <button onclick="zoomOut();" class="action_space_button">Zoom Out</button>
+  <button onclick="randomise_action_masks();" class="action_space_button">Resample Masks</button>
+  </center>
+  </div>
   
   
   
   
 </d-article>
 
+<d-appendix>
+	<d-footnote-list></d-footnote-list>
+    <d-citation-list></d-citation-list>
+</d-appendix>
 
-<div id="disqus_thread" style="width:75%;"></div>
+<script type="text/javascript" src="js/action_space_app.js"></script>
+
+
+<center><div id="disqus_thread" style="width:75%;"></div></center>
 <script>
     
     var disqus_config = function () {
