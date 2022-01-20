@@ -6,6 +6,10 @@
 <title>Settlers of Catan Reinforcement Learning</title>
 
 <link rel="stylesheet" href="css/action_space_app.css">
+<link rel="stylesheet" href="css/action_types.css">
+
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 <script src="js/d3.v7.min.js"></script>
 
@@ -528,32 +532,37 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
         <h3>Contents</h3>
         <div><a href="#introduction">Introduction</a></div>
         <div><a href="#build-simulator">Building the Simulator</a></div>
-        <ul>
-          <li><a href="#types-of-action">Types of Action</a></li>
-        </ul>
         <div><a href="#action-space">Dealing with the Action Space</a></div>
-		<div><a href="#code">Code</a></div>
+        <ul>
+          <li><a href="#action-space-app-div">Interactive Visualisation of Action Module</a></li>
+        </ul>
+        <div><a href="#nn-architecture">Neural Network Architecture</a></div>
+        <div><a href="#ppo-training">RL (PPO) Training Details</a></div>
+        <div><a href="#results">Results from RL Training</a></div>
+        <div><a href="#forward-search">Improving Performance with Forward-Search</a></div>
+		<div><a href="https://github.com/henrycharlesworth/settlers_of_catan_RL" target="_blank">Code</a></div>
       </nav>
     </d-contents>
 
   <div>
   <h2 id="introduction">Introduction</h2>
   <p class="l-middle">
-  At the beginning of 2021, just after the announcement of another lockdown in the UK, I decided I needed a new side-project to work on. As a way to teach myself about RL, a couple of years ago I built a simulator and trained an agent<d-footnote><a href="https://arxiv.org/abs/1808.10442" target="_blank">"Application of Self-Play Reinforcement Learning to a Four-Player Game of Imperfect Information"</a> - Henry Charlesworth (2018) (<a href="https://github.com/henrycharlesworth/big2_PPOalgorithm">Code</a>)</d-footnote> to play the card game 
+  At the beginning of 2021, just after the announcement of another lockdown in the UK, I decided I needed a new side-project to work on. As a way to teach myself about RL a couple of years ago I built a simulator and trained an agent<d-footnote><a href="https://arxiv.org/abs/1808.10442" target="_blank">"Application of Self-Play Reinforcement Learning to a Four-Player Game of Imperfect Information"</a> - Henry Charlesworth (2018) (<a href="https://github.com/henrycharlesworth/big2_PPOalgorithm">Code</a>)</d-footnote> to play the card game 
   "Big 2", a reasonably complex four-player game of imperfect information. This worked surprisingly well, and having spent the intervening years carrying out research in RL (as a postdoc and now as a research scientist at Rowden Technologies) I thought that I'd like to try something more challenging still. In recent years RL has attracted a lot of attention
-  due to the extremely impressive results that have been achieved in applying RL to games such as Go<d-footnote><a href="https://deepmind.com/blog/article/alphago-zero-starting-scratch" target="_blank">"AlphaGo Zero"</a> - DeepMind (2017)</d-footnote> , DOTA 2<d-footnote><a href="https://openai.com/five/" target="_blank">"OpenAI Five"</a> - OpenAI (2016-2019)</d-footnote> and Starcraft 2<d-footnote><a href="https://deepmind.com/blog/article/alphastar-mastering-real-time-strategy-game-starcraft-ii" target="_blank">"AlphaStar"</a> - DeepMind (2019)</d-footnote>. However, all of these projects required huge teams of world class researchers/software engineers and 
-  tens of millions of dollars worth of compute power - meaning that attempting to solve anything of comparable complexity as an individual researcher working on a beefy (but still single) desktop PC is pretty unlikely to get very far! On the other hand, so much RL research these days is carried out on relatively simple environments
-  (at least in terms of the structure of their state/action spaces), which can sometimes get a bit boring in my view, and so I wanted a different kind of challenge.</p>
+  due to the extremely impressive results that have been achieved in applying RL to games such as Go<d-footnote><a href="https://deepmind.com/blog/article/alphago-zero-starting-scratch" target="_blank">"AlphaGo Zero"</a> - DeepMind (2017)</d-footnote> , DOTA 2<d-footnote><a href="https://openai.com/five/" target="_blank">"OpenAI Five"</a> - OpenAI (2016-2019)</d-footnote> and Starcraft 2<d-footnote><a href="https://deepmind.com/blog/article/alphastar-mastering-real-time-strategy-game-starcraft-ii" target="_blank">"AlphaStar"</a> - DeepMind (2019)</d-footnote>. However all of these projects required huge teams of world class researchers/software engineers and 
+  tens of millions of dollars worth of compute power - meaning that attempting to solve anything of comparable complexity as an individual researcher working on a single (albeit still fairly powerful) machine is unlikely to get very far! On the other hand, a majority of RL research papers all use the same relatively simple set of environments to evaluate their results, generally involving quite simple state/action spaces. Whilst this is understandable I do find it quite frustrating sometimes, and I'm gradually becoming interested more in looking at how well deep RL can be applied to completely new and challenging environments but without requiring the resources of DeepMind/OpenAI.
+</p>
 
  <p class="l-middle">
-  I ended up deciding that an interesting game to try would be <a href="https://www.catan.com/" target="_blank">"Settlers of Catan"</a> - a hugely popular board game that has sold over 35 million copies worldwide that I personally enjoy playing with friends.
-  This is a game with a complex state/action space (placing roads/settlements, playing development cards, trading/exchanging resources etc), as well as being a 4-player game with some hidden information, and quite substantially more complex than Big 2. This makes it a serious challenge, however it is still significantly more accessible than an RTS like Starcraft 2, and so I thought it was perhaps possible that I could make some progress. 
-  This article is a detailed dive into the approach I took and the results I was able to achieve, and will hopefully offer some useful insights for anyone interested in applying RL to a comparable environment.
-  
+  I ended up deciding that an interesting game to try would be <a href="https://www.catan.com/" target="_blank">"Settlers of Catan"</a> - a hugely popular board game that has sold over 35 million copies worldwide that I personally enjoy playing with friends. This is a game with a complex state/action space (placing roads/settlements, playing development cards, trading/exchanging resources etc), as well as being a 4-player game with some hidden information and every game requiring a large number of decisions. Without doubt it is more complicated than Big 2, but I thought that it is still significantly more accessible than an RTS like Starcraft 2. So whilst I recognised that this was going to be a serious challenge I thought it was perhaps possible that I could make some progress.  
+  </p>
+
+  <p class="l-middle">
+    The plan for this "paper"/article is to give a detailed overview of the approach I took, the difficulties that arose and the results I've been able to get so far. Whilst I haven't yet been able to get to the point where the trained agents perform at a super-human level, there has been definite learning progress and the results are interesting. I also hope that this article will potentially offer some useful insights for anyone interested in applying RL to a new comparable environment.
   </p>
   
   <p class="l-middle">
-  Before we get going, it is worth pointing out that others have made some attempts to apply RL to Settlers of Catan. However, as far as I'm aware these all either required the use of some pre-defined heuristics <d-footnote><a href="https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.561.6293&rep=rep1&type=pdf" target="_blank">"Reinforcement Learning of Strategies for Settlers of Catan"</a> - Michael Pfeiffer (2004) - non-deep RL approach, relies on heuristics/ human knowledge.</d-footnote> or did not consider the full four-player game with trading <d-footnote><a href="https://arxiv.org/pdf/2008.07079.pdf" target="_blank">"Playing Catan with Cross-dimensional Neural Network"</a> - Quentin Gendre and Tomoyuki Kaneko (2020) - uses deep RL, but limits itself to 2 players without trading</d-footnote>
+  Before we get going, it is worth pointing out that others have made some attempts to apply RL to Settlers of Catan. However, as far as I'm aware these all either required the use of some pre-defined heuristics <d-footnote><a href="https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.561.6293&rep=rep1&type=pdf" target="_blank">"Reinforcement Learning of Strategies for Settlers of Catan"</a> - Michael Pfeiffer (2004) - non-deep RL approach, relies on heuristics/ human knowledge.</d-footnote> or did not consider the full four-player game with trading allowed<d-footnote><a href="https://arxiv.org/pdf/2008.07079.pdf" target="_blank">"Playing Catan with Cross-dimensional Neural Network"</a> - Quentin Gendre and Tomoyuki Kaneko (2020) - uses deep RL, but limits itself to 2 players without trading</d-footnote>
   <d-footnote><a href="https://hal.archives-ouvertes.fr/hal-02124411/document" target="_blank">"Deep Reinforcement Learning in Strategic Board Game Environments"</a> - Konstantia Xenou et al. (2014) - uses DQN, but agent only acts when accepting/proposing a trade, otherwise uses the JSettlers agent to make other decisions.</d-footnote>. I believe this is the first time someone has tried the learning the full game (with four players) from scratch (although even if it isn't - this was a fun project to work on anyway!)
   </p>
   
@@ -562,12 +571,145 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   <h2 id="build-simulator">Building a Simulator</h2>
   
   <p class="l-middle">
-    Blah blah
+    The first step I took was to build a simulator implementing all of the rules of Catan. Whilst there are already well established and open-source code implementations available - in particular <a href="https://github.com/jdmonin/JSettlers2">JSettlers</a> - I decided to build my own from scratch for a number of reasons. Firstly, the only experience I have making a game simulator is with my previous Big 2 project, which was quite a while ago and quite a bit simpler, so I thought it would be quite fun to code everything myself. But more importantly I wanted something written in Python that I had full control over. Particularly since I don't have much Java experience, I felt like certain things (such as figuring out the action masks representing which actions are available in a given state) would be much simpler if I'd written my own simulator and understood everything about it in detail without having to dive into the JSettlers source code. Writing it in Python also has the advantage of making it much easier to integrate with the RL algorithm. 
+</p>
+<p class="l-middle">
+    Another key reason is that I wanted to keep open the option of building forward-search methods (e.g. Monte-carlo Tree Search) to use with the trained RL agent. This requires being able to save and reset the state of the simulator and I assumed this would probably be a bit of a pain using JSettlers (although I admit I haven't properly looked into this in detail so it might be possible). Finally, developing the environment specifically with RL in mind just allows you to structure everything in a way that makes applying RL to it easier (unfortunately I have a lot of experience in trying to apply RL to simulation software that wasn't designed for RL, and it can be quite frustrating to say the least!).
+  </p>
+
+  <p class="l-middle">
+    The main drawback was that obviously this ended up being a pretty big job in itself, especially since I decided early on that I needed to make a GUI and human-playable mode so that I could actually play against any agents that I trained (it's also really useful for debugging). I used PyGame for this, which is nice and simple to get started with but does have some limitations and things that make it a bit annoying to work with. But for my purposes it was just about good enough, and I was actually quite happy with how it ended up looking (all the code, including the simulator, is available on <a href="https://github.com/henrycharlesworth/settlers_of_catan_RL">Github</a>).
+  </p>
+
+  <p class="l-middle">
+  Other than the GUI and ensuring that the base game logic was all correct, one of the main things that the simulator needed was a way of representing which actions are available to an agent in any given state. As we will explore in the next section, Settlers of Catan has a complicated action space with a wide variety of different action types that an agent can play, not all of which are possible depending on the current state of the game. In fact, in a typical state a <i>vast majority</i> of all possible actions an agent could take will not be allowed (e.g. if they don't have the resources to build a settlement, or there are no valid corners to build on). As such, to train the agent in an efficient manner it is crucially important to mask out invalid actions. The alternative - i.e. allowing the agent to take invalid actions but ensuring they don't have any affect on the environment - is incredibly inefficient, since the agent would waste a huge amount of time trying out actions that do nothing.
   </p>
 
   <h2 id="action-space">Dealing with the Action Space</h2>
+  <p class="l-middle">
+  The key ideas to deal with the action space was to use a combination of different action heads for different types of actions, and to have the simulator generate a corresponding set of masks that prevent invalid actions from ever being selected. The use of different action heads imposes some <i>structure</i> on the action space, which in principle should make training more efficient.
+  </p>
+  <p class="l-middle">
+  Let's start by considering the most naive approach we could take and think about some potential issues. An obvious idea would be to simply define a fixed set of actions and then have the neural network policy output a fixed size vector of probabilities over all of these possible actions (masking out all the actions which are unavailable in the current state - i.e. manually setting the probabilities to zero). So for example, you could have the first 54 components of the vector corresponding to placing a settlement on each of the 54 corners of the board, whilst the next 72 could correspond to placing a road on any of the 72 edges of the board, etc. 
+  </p>
 
-  <div class="l-screen">
+  <p class="l-middle">
+    Whilst this is probably not too bad for placing settlements and roads, the first issue that arises is that some of the other available actions are a bit more complicated to model. For example, let's consider playing the "Year of Plenty" development card. When the card is played the user is allowed to choose two resources to take from the bank. This effectively makes it a composite action - you choose to play the card and you also need to select the two resources to receive. If we want to treat this as a single decision it means that there need to be 15 separate entries in the fixed size set of actions - one for each combination of resources (we can assume the order of resources is irrelevant). But this means that the network will have to learn about each of these 15 possibilities separately. So when it receives feedback from playing one of these actions (e.g. let's say that the agent went on to receive more reward than usual, so it wants to increase the probability of playing that action again in a similar situation), there is no direct mechanism that will lead to that feedback impacting the probabilities of the other 14 (quite similar) actions. Given that playing a "year of plenty" development card is quite rare anyway this will mean that the agent is likely to require an infeasible amount of experience to learn about all of these different possibilities independently. The alternative would be to break this down this down into three separate decisions - with one of the entries in the fixed size vector representing playing the card, and five entries corresponding to selecting a resource. Then once the card has been played, the simulator could mask out all actions that do not correspond to selecting a resource for the next two decisions. I suspect this might be preferable in this situation, however it's still not ideal because you have turned what should be a single action into three. Additionally, the network will need to be provided with information about the context of each of the three decisions its making and calculating the correct action masks for each decision can get a little tricky. These problems are exacerbated even further when we think about how to model trading.
+  </p>
+
+  <p class="l-middle">
+    This gives some motivation for using multiple action heads. The idea is that the first head will output the action type whilst the other heads will output the quantities that are needed for the particular type of action which is selected. These outputs can then be combined into "composite" actions (when necessary). So if we go back to the "year of plenty" development card example - the first head will output the action type (play development card), then a development card head will output the development card type (year of plenty), and then two separate resource heads will output the two desired resources. This allows us to break down the composite decision into components, with each head free to focus entirely on its part of the decision (conditional on the input from the other heads - so for example the resource heads will be given the context of the decision made by the development card head). This has the advantage of allowing composite actions to be chosen as part of a single "decision" (one pass through the neural network), as well as potentially allowing for much better generalisation since the feedback from the action (in terms of estimated values/advantages) can be applied to each head separately. In the example mentioned, this means that playing the "year of plenty" card can be reinforced directly via the development card head regardless of which resources are actually chosen - which in principle should make the learning process significantly more efficient.
+  </p>
+
+  <p class="l-middle">
+    As a quick technical aside, the RL algorithm used (PPO <d-footnote><a href="https://arxiv.org/abs/1707.06347" target="_blank">"Proximal Policy Optimization Algorithms"</a> - Schulman et al. 2017</d-footnote>) requires you to calculate the log-probability of the action taken. Note that this can easily be done with when using multiple action heads. For example imagine a composite action made up of an action type \(a_{\text{type}} \) and a secondary output from another head that depends on the action type, \(a_{\text{head 2}} \). We can write the probability of the composite action as:
+    $$ P(a_{\text{type}}, a_{\text{head 2}}) = P(a_{\text{head 2}} | a_{\text{type}}) P(a_{\text{type}}) $$
+    The first head outputs \( P(a_{\text{type}}) \) and if we feed in the sampled \(a_{\text{type}} \) to the second head then the second head outputs \( P(a_{\text{head 2}} | a_{\text{type}})  \). Then the log probability follows simply as:
+    $$ \log P(a_{\text{type}}, a_{\text{head 2}}) = \log P(a_{\text{head 2}} | a_{\text{type}}) + \log P(a_{\text{type}}) $$
+  </p>
+
+  <p class="l-middle">
+  Having said all of this, using multiple action heads in this way is not trivial, and I will dedicate a fair amount of time to try and explain in detail how this was implemented in practice. To get started with, I broke the basic actions down into the 13 types described in the table below:
+  </p>
+
+
+    <div class="navbar l-screen">
+      <center>
+  <a href="#none" onclick="update_action_information('settlement')">Place Settlement</a>
+  <a href="#none" onclick="update_action_information('road')">Place Road</a>
+  <a href="#none" onclick="update_action_information('city')">Upgrade To City</a>
+  <a href="#none" onclick="update_action_information('buydevcard')">Buy DevCard</a>
+  <a href="#none" onclick="update_action_information('playdevcard')">Play DevCard</a>
+  <a href="#none" onclick="update_action_information('exchangeres')">Exchange Resources</a>
+  <a href="#none" onclick="update_action_information('proposetrade')">Propose Trade</a>
+  <a href="#none" onclick="update_action_information('respondtotrade')">Respond To Trade</a>
+  <a href="#none" onclick="update_action_information('moverobber')">Move Robber</a>
+  <a href="#none" onclick="update_action_information('rolldice')">Roll Dice</a>
+  <a href="#none" onclick="update_action_information('endturn')">End Turn</a>
+  <a href="#none" onclick="update_action_information('stealres')">Steal Resource</a>
+  <a href="#none" onclick="update_action_information('discardres')">Discard Resource</a>
+</center>
+  </div>
+
+  <div class="belownavbar l-screen" id="actiontypeinfo">
+    <div style="width: 90%;" id="actiontypeouter">
+    <center>
+      <div id="actiontypeimage" style="display:inline-block; min-width:2.2cm; height:5.8cm; align: center;vertical-align: middle; padding: 6px;" >
+  <img src="images/action_types/place_settlement.png" style="height:5.8cm; border: 1px solid black;">
+</div>
+<div id="actiontypetext" style="display:inline-block;vertical-align: middle; padding: 15px; width: 25cm;">
+
+</div>
+</div>
+</center>
+
+  </div>
+
+  <p class="l-middle"><br/>
+    The reinforcement learning agent will operate at the level of these base actions - i.e. each decision the agent makes will correspond to one of these action types. In general a player's turn will be made up of multiple of these base actions which they can take one after the other until they choose the "end turn" action (at which point control will pass to the next player).
+  </p>
+
+  <p class="l-middle">
+    As mentioned, the first action head is the one that chooses the type of action (one of the 13 listed above). I think it's worth going through in full detail how this head works before diving into more detail about how the other heads work/ how they are combined together.
+  </p>
+
+  <p class="l-middle">
+    The diagram below illustrates what happens. The output from the "observation" module (see next section) is provided as input to the action head (a two layer fully connected neural network), which outputs a vector of logits (one for each action type). Before turning this into a probability distribution over actions we apply the relevant action mask provided by the simulation. This is a vector of 1s and 0s representing which types of actions are possible in the current state (valid actions are represented by 1.0, invalid actions by 0.0). What we do is then take the log of these action masks (so valid actions are mapped to 0, whilst invalid actions are mapped to negative infinity) and add them to the logits. For the valid action types this will have no effect, but invalid actions will be set to minus infinity. This means that when the softmax is applied their probabilities will be set to zero, ensuring that invalid actions are never selected.
+  </p>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/action_mask_example.png"/></center>
+  </div>
+
+  <p class="l-middle"><br/>
+    The next head is the "corner" head, which outputs a categorical distribution over the 54 possible corner locations where settlements can in principle be placed (or upgraded to cities). This is only required for the "place settlement" and "upgrade to city" action types (the same head is used for both and the action type is provided as input to the head along with the output of the observation module - so it knows whether it's placing a settlement or upgrading to a city). For all other action types the output of this head will be masked out (note that because we have to train on large batches of data this head always has to be processed, but the output can be masked out depending on the action type chosen). The simulation environment also provides separate action masks for each of the two action types this head can be used for to mask out any invalid actions.
+  </p>
+
+  <p class="l-middle">
+After that we have the "edge" head, which outputs a distribution over the 72 possible edges a road can be placed on. This is obviously only used for the "place road" action type, and is masked out otherwise. The input is simply the observation output (it doesn't explicitly need to receive the action type output because it is only ever used for one type of action and masked out otherwise).
+  </p>
+  <p class="l-middle">
+The third head is the "tile" head - giving a distribution over the 19 tiles. This is only ever used with the moving the robber action type. Again its only input is the observation module output.
+  </p>
+  <p class="l-middle">
+The fourth head in the "development card" head - giving a distribution over the 5 types of development card (obviously cards that the player does not own are masked out). This is only used with the play development card action type, and again its input is the observation module output.
+  </p>
+  <p class="l-middle">
+    The fifth head is the "accept/reject deal" head, which is used when the player has been offered a trade by another player. In this case it takes as input both the observation module output and a representation of the proposed trade and outputs a 2-dimensional categorical distribution over the two options (accept or reject).
+  </p>
+  <p class="l-middle">
+    The sixth head is the "choose player" head. This is used for the steal action type (after the player has moved the robber and is allowed to steal a resource from a player) <i>and also</i> for the propose trade action type (in this case the output of this head will be combined with the outputs of the "trade: to give" head and the "trade: to receive" head). So in this case the head takes both the observation module output and the action type (steal or propose trade) as inputs and outputs a categorical distribution over the available players (ordered clockwise from the decision-making player).
+  </p>
+  <p class="l-middle">
+    The next two heads are "resource" heads. The first resource head is used for the exchange resource action type (representing the resource to trade) and the play development card action type <i>but only when the development card is "monopoly" or "year of plenty"</i>, otherwise it is masked out. The second resource head is also used for the exchange resource action type (representing the resource to receive) and the "year of plenty" development card. As such, these heads take the observation module output, the action type and the development card type (if applicable) as inputs, and output a categorical distribution over the 5 resources in the game.
+  </p>
+  <p class="l-middle">
+    The next two heads are the most complicated since they represent proposing the resources for a trade. The first of these outputs the resources the player is proposing to give away. The main difficulty here is that in general the trade to be proposed can contain a variable number of resources (on both sides) and so the agent needs a way to be able to choose a variable number of resources (ideally without just considering every possible combination of resources as different actions). The way I decided to approach this was by using a recurrent action head where each pass of the head outputs a probability distribution over the five possible resources plus an additional <i>stop adding resources</i> action. The output of this head is then sampled and added to the "currently proposed trade". Provided the action chosen wasn't the "stop adding resources" action, this updated proposed trade is then fed back into the same action head along with the other inputs (the observation module output and the player's current resources, which is also updated based on the previous output). This allows the agent to iteratively add resources to the proposed trade as many times as it wants (although in practice I set a maximum of 4 resources on each side of the trade). The player's current resources can also be used here as the action mask for this head - ensuring the player never proposes to give away resources they do not actually have. The basic procedure for how this head operates is shown in the figure below:
+  </p>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/trade_action_example.png"/></center>
+  </div>
+
+  <p class="l-middle"><br/>
+    The secondary trading head operates in a very similar way, with the main difference being that it doesn't need to use the player's current resources as an action mask because this head models the resources the player is proposing to receive. In fact, for simplicity I decided not to use action masks on this head at all - so player's can request any number of resources from the player they are proposing the trade to even if they do not have those resources (in which case they will have to reject the trade). On reflection this is potentially quite inefficient, and especially as learning to trade is potentially one of the most challenging things for an RL Catan agent to learn I do wish I'd done this differently (the reason it's not straightforward is that the mask to use would depend on the output of the "choose player" head which gets a bit fiddly, especially when processing a batch of data. However, given that I'd already gone to the effort of making e.g. the mask used for the corner head depend on the output of the "action type" head this was definitely quite doable).
+  </p>
+
+  <p class="l-middle">
+    So the full composite "propose trade" action consists of the output of the action type head, the choose player head and the recurrent "trade: to give" and "trade: to receive" heads.
+  </p>
+
+  <p class="l-middle">
+    The final head is the "discard resource" head. Whenever a player has 8 or more resources and a 7 is rolled (by any player) they must discard resources until they only have 7 left. I did consider using a recurrent head here as well - so that a player could choose all of the resources to discard in a single decision (if they had to discard more than one resource). I didn't do this in the end primarily because I thought it would probably be easier to use in the forward search planner (see later section) if each action only involved discarding a single resource, but also because it was a lot simpler to implement this way. The downside is that obviously this leads to the agent having to potentially carry out a large number of decisions if they get into a situation where they need to discard a lot of resources. I'm still unsure as to whether this was a good decision, and this is one of a number of design choices I would have liked to evaluate more thoroughly if I had access to more computational resources!
+  </p>
+
+  <p class="l-middle">
+    So bringing this all together
+  </p>
+
+
+
+  <div class="l-screen" id="action-space-app-div">
     <svg id="action-space-app" width="100%" height="100%" viewBox="0 0 1500 450" preserveAspectRato="xMinYMin">
     </svg>
   </div>
@@ -583,7 +725,8 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   <input type="checkbox" id="moveRobberCheckbox" onclick="updateActionTypeMasks();" checked> Move Robber
   <input type="checkbox" id="rollDiceCheckbox" onclick="updateActionTypeMasks();" checked> Roll Dice
   <input type="checkbox" id="endTurnCheckbox" onclick="updateActionTypeMasks();" checked> End Turn
-  <input type="checkbox" id="stealResourceCheckbox" onclick="updateActionTypeMasks();" checked> Steal Resource<br/>
+  <input type="checkbox" id="stealResourceCheckbox" onclick="updateActionTypeMasks();" checked> Steal Resource
+  <input type="checkbox" id="discardResourceCheckbox" onclick="updateActionTypeMasks();" checked>Discard Resource<br/>
   <button onclick="sample_action();" class="action_space_button">Sample Action</button>
   <button onclick="resetView();" class="action_space_button">Reset View</button>
   <button onclick="zoomIn();" class="action_space_button">Zoom In</button>
@@ -603,6 +746,7 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
 </d-appendix>
 
 <script type="text/javascript" src="js/action_space_app.js"></script>
+<script type="text/javascript" src="js/action_types.js"></script>
 
 
 <center><div id="disqus_thread" style="width:75%;"></div></center>
