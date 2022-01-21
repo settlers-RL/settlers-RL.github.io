@@ -536,10 +536,11 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
         <ul>
           <li><a href="#action-space-app-div">Interactive Visualisation of Action Module</a></li>
         </ul>
-        <div><a href="#nn-architecture">Neural Network Architecture</a></div>
+        <div><a href="#nn-architecture">Observation Space/ Neural Network Architecture</a></div>
         <div><a href="#ppo-training">RL (PPO) Training Details</a></div>
         <div><a href="#results">Results from RL Training</a></div>
         <div><a href="#forward-search">Improving Performance with Forward-Search</a></div>
+        <div><a href="#conclusions">Conclusions</a></div>
 		<div><a href="https://github.com/henrycharlesworth/settlers_of_catan_RL" target="_blank">Code</a></div>
       </nav>
     </d-contents>
@@ -658,7 +659,7 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   </p>
 
   <div class="l-screen-inset"><center>
-    <img src="images/action_mask_example.png"/></center>
+    <img src="images/action_mask_example.png" width="70%"/></center>
   </div>
 
   <p class="l-middle"><br/>
@@ -688,7 +689,7 @@ The fourth head in the "development card" head - giving a distribution over the 
   </p>
 
   <div class="l-screen-inset"><center>
-    <img src="images/trade_action_example.png"/></center>
+    <img src="images/trade_action_example.png" width="90%"/></center>
   </div>
 
   <p class="l-middle"><br/>
@@ -704,8 +705,7 @@ The fourth head in the "development card" head - giving a distribution over the 
   </p>
 
   <p class="l-middle">
-    So bringing this all together
-  </p>
+    So bringing this all together I decided to build a little interactive demo of how the action heads work together! This ended up taking way longer than I had anticipated because my Javascript skills were extremely rusty but I was pretty happy with the results. The basic idea of the app is to show the flow of information through the whole action module when the agent is making a single decision. The orange boxes represent inputs which are passed into the actual action heads (fully connected neural networks, represented by pink boxes). The action heads each output logits (represented as little squares) which are then masked out by a particular action mask (shown as red boxes), which in general can depend on the output of any of the earlier action heads. After taking the softmax (not explicitly shown) the resultant probabilities are sampled to choose an action output from that head (represented by the blue boxes). The outputs of a given head can then in principle be used as part of the input for one of the later heads, or be used to pick the particular action mask used at a later head. As mentioned before, note that <i>all action heads are sampled whenever the agent makes a decision</i>, even when they are not relevant for the particular action type chosen. Although this may seem wasteful, it is necessary in order for us to be able to process multiple inputs in parallel in batches. Any outputs that are not relevant simply have their contribution to the overall action log probability masked out to zero (in the app this is represented by making the outputs from heads which are not needed for the sampled action type transparent).  </p>
 
 
 
@@ -732,8 +732,26 @@ The fourth head in the "development card" head - giving a distribution over the 
   <button onclick="zoomIn();" class="action_space_button">Zoom In</button>
   <button onclick="zoomOut();" class="action_space_button">Zoom Out</button>
   <button onclick="randomise_action_masks();" class="action_space_button">Resample Masks</button>
-  </center>
+  </center><br/><br/><br/><br/><br/><br/><br/>
   </div>
+
+
+
+
+  <h2 id="nn-architecture">Observation Space/ Neural Network Architecture</h2>
+
+<div class="l-screen-inset"><center>
+    <img src="images/tile_features_and_encoder.png" width="70%"/></center>
+  </div>
+
+
+  <h2 id="ppo-training">RL (PPO) Training Details</h2>
+
+  <h2 id="results">Results From RL Training</h2>
+
+  <h2 id="forward-search">Improving Performance With Forward Search</h2>
+
+  <h2 id="conclusions">Conclusions</h2>
   
   
   

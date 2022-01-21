@@ -6,7 +6,7 @@ var lstm_output_box_x = 800;
 var lstm_output_box_y = 390;
 
 var lstm_output_box = g_action_head.append("rect").attr("rx", 10).attr("ry", 10).attr("x", lstm_output_box_x).attr("y", lstm_output_box_y).attr("width", lstm_output_box_width).attr("height", lstm_output_box_height).attr("class", "lstm_output")
-var lstm_output_text = g_action_head.append("text").text("Output from LSTM").attr("x", lstm_output_box_x + 100).attr("y", lstm_output_box_y + 29).attr("class", "head_text")
+var lstm_output_text = g_action_head.append("text").text("Observation Module Output").attr("x", lstm_output_box_x + 100).attr("y", lstm_output_box_y + 29).attr("class", "head_text")
 text_width = lstm_output_text.node().getBBox().width;
 lstm_output_text.attr("x", lstm_output_box_x + (lstm_output_box_width / 2.0) - text_width / 2.0)
 
@@ -108,6 +108,12 @@ var prop_trade_to_receive_head = g_action_head.append("rect").attr("rx", 10).att
 var prop_trade_to_receive_head_text = g_action_head.append("text").text("Trade: To Receive").attr("x", prop_trade_to_receive_head_x + 8).attr("y", head_box_y+29).attr("class", "head_text").attr("width", head_box_width)
 text_width = prop_trade_to_receive_head_text.node().getBBox().width;
 prop_trade_to_receive_head_text.attr("x", prop_trade_to_receive_head_x + (head_box_width/2.0)-(text_width/2.0));
+
+var discard_head_x = prop_trade_to_receive_head_x + 1.0 * head_box_width + dist_between_heads;
+var discard_head = g_action_head.append("rect").attr("rx", 10).attr("ry", 10).attr("x", discard_head_x).attr("y", head_box_y).attr("width", head_box_width).attr("height", head_box_height).attr("class", "action_head_rect_active");
+var discard_head_text = g_action_head.append("text").text("Discard Resource").attr("x", discard_head_x + 5).attr("y", head_box_y + 29).attr("class", "head_text").attr("width", head_box_width);
+text_width = discard_head_text.node().getBBox().width;
+discard_head_text.attr("x", discard_head_x + (head_box_width/2.0) - (text_width/2.0));
 
 
 /*
@@ -217,6 +223,12 @@ var res2_inbank_mask_text = g_action_head.append("text").text("In Bank Mask").at
 text_width = res2_inbank_mask_text.node().getBBox().width;
 res2_inbank_mask_text.attr("x", res2_mask_x + (mask_rect_width / 2.0) - text_width / 2.0)
 
+//dscard res mask
+var discard_res_mask_x = discard_head_x + frac_across * head_box_width
+var discard_res_mask = g_action_head.append("rect").attr("rx", 5).attr("ry", 5).attr("x", discard_res_mask_x).attr("y", mask_y_start).attr("width", mask_rect_width).attr("height", mask_rect_height).attr("class", "inactive_mask");
+var discard_res_mask_text = g_action_head.append("text").text("In Hand Mask").attr("x", discard_res_mask_x + 10).attr("y", mask_y_start+13).attr("class", "mask_text");
+text_width = discard_res_mask_text.node().getBBox().width;
+discard_res_mask_text.attr("x", discard_res_mask_x + (mask_rect_width / 2.0) - (text_width/2.0));
 
 //prop give mask
 var prop_give_mask_x = prop_trade_to_give_head_x + frac_across * head_box_width
@@ -239,23 +251,23 @@ for(i=0; i<5; i++) {
 Logits
 */
 var logit_size = 11;
-var action_logit_x_start = 75;
+var action_logit_x_start = 69;
 var action_logit_y = 200;
 
 var action_logits = [];
-for (i = 0; i < 12; i++) {
+for (i = 0; i < 13; i++) {
 	action_logits.push(g_action_head.append("rect").attr("width", logit_size).attr("height", logit_size).attr("x", action_logit_x_start + i * logit_size).attr("y", action_logit_y).attr("class", "logit"))
 }
 
 var action_logit_crosses_1 = [];
 var action_logit_crosses_2 = [];
-for (i=0; i<12; i++) {
+for (i=0; i<13; i++) {
 	action_logit_crosses_1.push(g_action_head.append("line").style("stroke", "red").attr("x1", parseInt(action_logits[i].attr("x"))).attr("x2", parseInt(action_logits[i].attr("x")) + logit_size).attr("y1", parseInt(action_logits[i].attr("y"))).attr("y2", parseInt(action_logits[i].attr("y")) + logit_size).style("opacity", 0.0))
 	action_logit_crosses_2.push(g_action_head.append("line").style("stroke", "red").attr("x1", parseInt(action_logits[i].attr("x")) + logit_size).attr("x2", parseInt(action_logits[i].attr("x"))).attr("y1", parseInt(action_logits[i].attr("y"))).attr("y2", parseInt(action_logits[i].attr("y")) + logit_size).style("opacity", 0.0))
 }
 
 var type_logits = [];
-for(i=0; i<12; i++) {
+for(i=0; i<13; i++) {
 	type_logits.push(0.0)
 }
 
@@ -592,6 +604,27 @@ for(i=0; i<5; i++) {
 
 
 
+//discard res logits
+var discard_res_logit_x = discard_head_x + 35;
+var discard_res_logit_y = action_logit_y;
+
+var discard_res_logits = [];
+for (i=0; i < 5; i++) {
+	discard_res_logits.push(g_action_head.append("rect").attr("width", logit_size).attr("height", logit_size).attr("x", discard_res_logit_x + i*logit_size).attr("y", discard_res_logit_y).attr("class", "logit"));
+}
+
+var discard_res_logit_crosses_1 = [];
+var discard_res_logit_crosses_2 = [];
+for (i=0; i<5; i++) {
+	discard_res_logit_crosses_1.push(g_action_head.append("line").style("stroke", "red").attr("x1", parseInt(discard_res_logits[i].attr("x"))).attr("x2", parseInt(discard_res_logits[i].attr("x")) + logit_size).attr("y1", parseInt(discard_res_logits[i].attr("y"))).attr("y2", parseInt(discard_res_logits[i].attr("y")) + logit_size).style("opacity", 0.0));
+	discard_res_logit_crosses_2.push(g_action_head.append("line").style("stroke", "red").attr("x1", parseInt(discard_res_logits[i].attr("x"))+logit_size).attr("x2", parseInt(discard_res_logits[i].attr("x"))).attr("y1", parseInt(discard_res_logits[i].attr("y"))).attr("y2", parseInt(discard_res_logits[i].attr("y")) + logit_size).style("opacity", 0.0));
+}
+
+var discard_res_logit_vals = [];
+for(i=0; i<5; i++) {
+	discard_res_logits.push(0.0);
+}
+
 
 
 //prop give logits
@@ -639,7 +672,7 @@ for(i=0; i<6; i++) {
 Actual action masks
 */
 var action_masks = {
-	"action_type": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+	"action_type": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 }
 
 
@@ -718,6 +751,10 @@ var prop_rec_output_y = action_output_y;
 var prop_rec_output = g_action_head.append("rect").attr("rx", 10).attr("ry", 10).attr("width", action_out_width+24).attr("height", action_out_height).attr("x", prop_rec_output_x).attr("y", prop_rec_output_y).attr("class", "action_output")
 
 
+var discard_res_output_x = discard_head_x;
+var discard_res_output_y = action_output_y;
+
+var discard_res_output = g_action_head.append("rect").attr("rx", 10).attr("ry", 10).attr("width", action_out_width).attr("height", action_out_height).attr("x", discard_res_output_x).attr("y", discard_res_output_y).attr("class", "action_output");
 
 
 
@@ -1599,6 +1636,57 @@ var path_trade_give_out_to_trade_rec_length = path_trade_give_out_to_trade_rec.n
 
 
 
+// lstm to discard res
+var points_extend_input_to_discard_res = [
+	[prop_trade_to_receive_head_x + (head_box_width/2.0), points[1][1]],
+	[discard_head_x + (head_box_width/2.0), points[1][1]],
+	[discard_head_x + (head_box_width/2.0), head_box_y + head_box_height]
+]
+var path_lstm_to_discard_res = g_action_head.append("path").attr("d", getPathStringFromPoints(points_extend_input_to_discard_res)).attr("class", "active_path").attr("id", "lstm_to_discard_head");
+var path_lstm_to_discard_res_length = path_lstm_to_discard_res.node().getTotalLength();
+
+
+// type output extend to discard head
+var points_extend_type_output_to_discard_output = [
+	points_type_output_to_trade_rec_output[1],
+	[discard_head_x + (head_box_width/2.0), points_type_output_to_trade_rec_output[1][1]],
+	[discard_head_x + (head_box_width/2.0), action_output_y]
+]
+
+var path_type_output_to_discard_res_output = g_action_head.append("path").attr("d", getPathStringFromPoints(points_extend_type_output_to_discard_output)).attr("class", "active_path").attr("id", "path_type_output_to_discard_res_output");
+var path_type_output_to_discard_res_output_length = path_type_output_to_discard_res_output.node().getTotalLength();
+
+//discard head to logits
+var points_discard_head_to_logits = [
+	[discard_res_logit_x + 2.5 * logit_size, head_box_y],
+	[discard_res_logit_x + 2.5 * logit_size, action_logit_y + logit_size]
+]
+
+var path_discard_head_to_logits = g_action_head.append("path").attr("d", getPathStringFromPoints(points_discard_head_to_logits)).attr("class", "active_path").attr("id", "path_discard_head_to_logits");
+var path_discard_head_to_logits_length = path_discard_head_to_logits.node().getTotalLength();
+
+
+//mask to logits
+var points_discard_mask_to_logits = [
+	[discard_res_mask_x, mask_y_start + 0.5*mask_rect_height],
+	[discard_head_x + 0.6 * head_box_width, mask_y_start + 0.5*mask_rect_height],
+	[discard_head_x + 0.6 * head_box_width, action_logit_y + logit_size]
+]
+
+var path_discard_mask_to_logits = g_action_head.append("path").attr("d", getPathStringFromPoints(points_discard_mask_to_logits)).attr("class", "active_path").attr("id", "path_discard_mask_to_logits");
+var path_discard_mask_to_logits_length = path_discard_mask_to_logits.node().getTotalLength();
+
+
+//logits to output
+var points_discrad_logits_to_output = [
+	[discard_res_logit_x + 2.5*logit_size, action_logit_y],
+	[discard_res_logit_x + 2.5*logit_size, action_output_y + action_out_height]
+]
+
+var path_discard_logits_to_output = g_action_head.append("path").attr("d", getPathStringFromPoints(points_discrad_logits_to_output)).attr("class", "active_path").attr("id", "path_discard_logits_to_output");
+var path_discard_logits_to_output_length = path_discard_logits_to_output.node().getTotalLength();
+
+
 
 var action_output_text = g_action_head.append("text").text("").attr("class", "output_text")
 
@@ -1628,6 +1716,8 @@ var actual_player_text = "";
 
 var actual_res1_id = -1;
 var actual_res2_id = -1;
+
+var actual_discard_res_id = -1;
 
 
 
@@ -1805,6 +1895,19 @@ if(exchange_masks[0]==0 && exchange_masks[1]==0 && exchange_masks[2]==0 && excha
 	exchange_masks[1] = 1;
 }
 action_masks["exchange"] = exchange_masks
+
+var discard_masks = []
+for(i=0; i<5; i++) {
+	if(Math.random() < 0.5) {
+		discard_masks.push(1)
+	} else {
+		discard_masks.push(0)
+	}
+}
+if(discard_masks[0] == 0 && discard_masks[1] == 0 && discard_masks[2] == 0 && discard_masks[3] == 0 && discard_masks[4] == 0) {
+	discard_masks[4] = 1;
+}
+action_masks["discard"] = discard_masks
 
 var monopoly_masks = []
 for(i=0; i<5; i++) {
@@ -2020,11 +2123,18 @@ function updateActionTypeMasks() {
 		action_masks["action_type"][11] = 0
 	}
 
+	let checkbox_13 = document.getElementById("discardResourceCheckbox")
+	if (checkbox_13.checked == true) {
+		action_masks["action_type"][12] = 1
+	} else {
+		action_masks["action_type"][12] = 0
+	}
+
 }
 
 
 function draw_type_logits(include_crosses=false) {
-	for(i=0; i<12; i++) {
+	for(i=0; i<13; i++) {
 		action_logits[i].style("fill-opacity", type_logits[i])
 		if(include_crosses) {
 			if(action_masks["action_type"][i]==0) {
@@ -2041,17 +2151,17 @@ function draw_type_logits(include_crosses=false) {
 
 function sampleTypeLogitsNoMask() {
 	logits = [];
-	for(i=0; i < 12; i++) {
+	for(i=0; i < 13; i++) {
 		temp_logit = 3 * Math.random()
 		logits.push(temp_logit);
 	}
 	max_logit = Math.max.apply(Math, logits)
 	log_sum_exp = 0.0
-	for(i=0; i<12; i++) {
+	for(i=0; i<13; i++) {
 		log_sum_exp += Math.exp(logits[i] - max_logit)
 	}
 	log_sum_exp = Math.log(log_sum_exp) + max_logit
-	for(i=0; i<12; i++) {
+	for(i=0; i<13; i++) {
 		type_logits[i] = Math.exp(logits[i] - log_sum_exp)
 	}
 }
@@ -2059,7 +2169,7 @@ function sampleTypeLogitsNoMask() {
 
 function applyMasksToTypeLogits() {
 	prob_sum = 0.0
-	for(i=0; i < 12; i++) {
+	for(i=0; i < 13; i++) {
 		if(action_masks["action_type"][i] == 1) {
 			prob_sum += type_logits[i];
 		} else {
@@ -2067,7 +2177,7 @@ function applyMasksToTypeLogits() {
 		}
 	}
 
-	for(i=0; i<12; i++) {
+	for(i=0; i<13; i++) {
 		type_logits[i] /= prob_sum;
 	}
 }
@@ -2087,7 +2197,7 @@ function type_head_to_logits_path() {
 }
 
 function initial_draw_type_logits() {
-	for(i=0; i<12; i++) {
+	for(i=0; i<13; i++) {
 		action_logits[i].transition().style("fill", "green")
 	}
 	draw_type_logits();
@@ -2106,7 +2216,7 @@ function sample_action_type() {
 	action_id = -1;
 	prob_sum = 0.0;
 	random_num = Math.random();
-	for(i=0; i<12; i++) {
+	for(i=0; i<13; i++) {
 		prob_sum += type_logits[i];
 		if(random_num < prob_sum) {
 			action_id = i;
@@ -2140,6 +2250,8 @@ function sample_action_type() {
 		action_text = "End Turn"
 	} else if(action_id==11) {
 		action_text = "Steal Resource"
+	} else if(action_id==12) {
+		action_text = "Discard Resource"
 	}
 	return [action_id, action_text]
 }
@@ -3273,7 +3385,7 @@ function change_res1_head_and_continue() {
 	} else {
 		values = transform.match(/[+-]?\d+(?:\.\d+)?/g).map(Number);
 		if(Math.abs(values[0] + 700) < 0.1 && Math.abs(values[1]) < 0.1 && Math.abs(values[2]-1) < 0.01) {
-			d3.select('#action-space-app').transition().call(zoom.translateBy, -750, 0).duration(1000).on("end", start_res2_animation);
+			d3.select('#action-space-app').transition().call(zoom.translateBy, -1050, 0).duration(1000).on("end", start_res2_animation);
 		} else {
 			start_res2_animation();
 		}
@@ -3726,7 +3838,129 @@ function change_prop_rec_head() {
 			d3.selectAll(".proprec_output_images").style("opacity", 0.25);
 		}
 	}
+
+	d3.select("#lstm_to_discard_head").style("opacity", 1.0);
+	path_lstm_to_discard_res.attr("stroke-dasharray", path_lstm_to_discard_res_length + " " + path_lstm_to_discard_res_length).attr("stroke-dashoffset", path_lstm_to_discard_res_length).transition()
+		.duration(500).delay(150).ease(d3.easeLinear).attr("stroke-dashoffset", 0).on("end", start_discard_animation);
 }
+
+function sampleDiscardResLogitsNoMask() {
+	logits = []
+	for(i=0; i<5; i++) {
+		temp_logit = 3 * Math.random();
+		logits.push(temp_logit);
+	}
+	max_logit = Math.max.apply(Math, logits)
+	log_sum_exp = 0.0
+	for(i=0; i<5; i++) {
+		log_sum_exp += Math.exp(logits[i] - max_logit)
+	}
+	log_sum_exp = Math.log(log_sum_exp) + max_logit
+	for(i=0; i<5; i++) {
+		discard_res_logit_vals[i] = Math.exp(logits[i] - log_sum_exp)
+	}
+}
+
+function draw_discard_res_logits(include_crosses=false) {
+	for(i=0; i<5; i++) {
+		discard_res_logits[i].style("fill-opacity", discard_res_logit_vals[i])
+		if(include_crosses) {
+			if(action_masks["discard"][i] == 0) {
+				discard_res_logit_crosses_1[i].style("opacity", 1.0);
+				discard_res_logit_crosses_2[i].style("opacity", 1.0);
+			} else {
+				discard_res_logit_crosses_1[i].style("opacity", 0.0);
+				discard_res_logit_crosses_2[i].style("opacity", 0.0);
+			}
+		}
+	}
+}
+
+function start_discard_animation() {
+	sampleDiscardResLogitsNoMask();
+
+	d3.select("#path_discard_head_to_logits").style("opacity", 1.0);
+	path_discard_head_to_logits.attr("stroke-dasharray", path_discard_head_to_logits_length + " " + path_discard_head_to_logits_length).attr("stroke-dashoffset", path_discard_head_to_logits_length).transition()
+		.duration(500).delay(150).ease(d3.easeLinear).attr("stroke-dashoffset", 0).on("end", initial_draw_discard_res_logits);
+}
+
+function applyMasksToDiscardLogits() {
+	prob_sum = 0.0;
+	for(i=0; i<5; i++) {
+		if(action_masks["discard"][i] == 1) {
+			prob_sum += discard_res_logit_vals[i];
+		} else {
+			discard_res_logit_vals[i] = 0.0;
+		}
+	}
+	for(i=0; i<5; i++) {
+		discard_res_logit_vals[i] /= prob_sum
+	}
+}
+
+function initial_draw_discard_res_logits() {
+		for(i=0; i<5; i++) {
+			discard_res_logits[i].transition().style("fill", "green");
+		}
+		draw_discard_res_logits(include_crosses=false);
+		discard_res_mask.attr("class", "active_mask");
+
+		path_discard_mask_to_logits.style("opacity", 1.0);
+		path_discard_mask_to_logits.attr("stroke-dasharray", path_discard_mask_to_logits_length + " " + path_discard_mask_to_logits_length).attr("stroke-dashoffset", path_discard_mask_to_logits_length).transition()
+		.duration(500).delay(200).ease(d3.easeLinear).attr("stroke-dashoffset", 0).on("end", draw_discard_logits_full_and_go_to_output);
+}
+
+function sample_discard_res() {
+	discard_res_id = -1;
+	prob_sum = 0.0;
+	random_num = Math.random();
+	for(i=0; i<5; i++) {
+		prob_sum += discard_res_logit_vals[i];
+		if(random_num < prob_sum) {
+			discard_res_id = i;
+			break
+		}
+	}
+	return discard_res_id
+}
+
+function draw_discard_logits_full_and_go_to_output() {
+	applyMasksToDiscardLogits();
+	draw_discard_res_logits(include_crosses=true);
+
+	actual_discard_res_id = sample_discard_res();
+
+	discard_res_logits[actual_discard_res_id].style("stroke-width", 3);
+
+	d3.select("#path_discard_logits_to_output").style("opacity", 1.0);
+	path_discard_logits_to_output.attr("stroke-dasharray", path_discard_logits_to_output_length + " " + path_discard_logits_to_output_length).attr("stroke-dashoffset", path_discard_logits_to_output_length).transition()
+		.duration(400).delay(100).ease(d3.easeLinear).attr("stroke-dashoffset", 0).on("end", fill_in_discard_output);
+}
+
+
+function fill_in_discard_output() {
+	res_img_size = res_img_width * 1.3;
+	res_img_x = discard_res_output_x + action_out_width/2.0 - (res_img_size/2.0);
+	res_img_y = action_output_y + (action_out_height/2.0) - (res_img_size/2.0);
+
+	g_action_head.append("svg:image").attr("x", res_img_x).attr("y", res_img_y).attr("width", res_img_size).attr("height", res_img_size).attr("id", "discard_res_img").attr("xlink:href", res_images[actual_discard_res_id]);
+
+	d3.select("#path_type_output_to_discard_res_output").style("opacity", 1.0);
+	path_type_output_to_discard_res_output.attr("stroke-dasharray", path_type_output_to_discard_res_output_length + " " + path_type_output_to_discard_res_output_length).attr("stroke-dashoffset", path_type_output_to_discard_res_output_length).transition()
+		.duration(500).delay(150).ease(d3.easeLinear).attr("stroke-dashoffset", 0).on("end", change_discard_head);
+}
+
+function change_discard_head() {
+	if(actual_action_type_id == 12) {
+		//pass
+	} else {
+		discard_res_output.style("opacity", 0.25);
+		d3.select("#discard_res_img").style("opacity", 0.25)
+	}
+}
+
+
+
 
 
 function initialise() {
@@ -3735,7 +3969,7 @@ function initialise() {
 	d3.selectAll(".logit").style("fill", "white").style("opacity", 1.0).style("stroke-width", 1);
 
 
-	for(i=0; i<12; i++) {
+	for(i=0; i<13; i++) {
 		action_logit_crosses_1[i].style("opacity", 0.0)
 		action_logit_crosses_2[i].style("opacity", 0.0)
 	}
@@ -3816,6 +4050,14 @@ function initialise() {
 		prop_give_logit_crosses_1[i].style("opacity", 0.0);
 		prop_give_logit_crosses_2[i].style("opacity", 0.0);
 	}
+
+	for(i=0; i<5; i++) {
+		discard_res_logit_crosses_1[i].style("opacity", 0.0);
+		discard_res_logit_crosses_2[i].style("opacity", 0.0);
+	}
+
+	discard_res_output.style("opacity", 1.0);
+	d3.select("#discard_res_img").remove();
 
 	prop_give_output.style("opacity", 1.0);
 
