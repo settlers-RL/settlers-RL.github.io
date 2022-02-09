@@ -591,11 +591,11 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   The key ideas to deal with the action space was to use a combination of different action heads for different types of actions, and to have the simulator generate a corresponding set of masks that prevent invalid actions from ever being selected. The use of different action heads imposes some <i>structure</i> on the action space, which in principle should make training more efficient.
   </p>
   <p class="l-middle">
-  Let's start by considering the most naive approach we could take and think about some potential issues. An obvious idea would be to simply define a fixed set of actions and then have the neural network policy output a fixed size vector of probabilities over all of these possible actions (masking out all the actions which are unavailable in the current state - i.e. manually setting the probabilities to zero). So for example, you could have the first 54 components of the vector corresponding to placing a settlement on each of the 54 corners of the board, whilst the next 72 could correspond to placing a road on any of the 72 edges of the board, etc. 
+  Let's start by considering the most naive approach we could take and think about some potential issues that may arise. An obvious idea would be to simply define a fixed set of actions and then have the neural network policy output a fixed size vector of probabilities over all of these possible actions (masking out all the actions which are unavailable in the current state - i.e. manually setting the probabilities to zero). So for example, you could have the first 54 components of the vector corresponding to placing a settlement on each of the 54 corners of the board, whilst the next 72 could correspond to placing a road on any of the 72 edges of the board, etc. 
   </p>
 
   <p class="l-middle">
-    Whilst this is probably not too bad for placing settlements and roads, the first issue that arises is that some of the other available actions are a bit more complicated to model. For example, let's consider playing the "Year of Plenty" development card. When the card is played the user is allowed to choose two resources to take from the bank. This effectively makes it a composite action - you choose to play the card and you also need to select the two resources to receive. If we want to treat this as a single decision it means that there need to be 15 separate entries in the fixed size set of actions - one for each combination of resources (we can assume the order of resources is irrelevant). But this means that the network will have to learn about each of these 15 possibilities separately. So when it receives feedback from playing one of these actions (e.g. let's say that the agent went on to receive more reward than usual, so it wants to increase the probability of playing that action again in a similar situation), there is no direct mechanism that will lead to that feedback impacting the probabilities of the other 14 (quite similar) actions. Given that playing a "year of plenty" development card is quite rare anyway this will mean that the agent is likely to require an infeasible amount of experience to learn about all of these different possibilities independently. The alternative would be to break this down this down into three separate decisions - with one of the entries in the fixed size vector representing playing the card, and five entries corresponding to selecting a resource. Then once the card has been played, the simulator could mask out all actions that do not correspond to selecting a resource for the next two decisions. I suspect this might be preferable in this situation, however it's still not ideal because you have turned what should be a single action into three. Additionally, the network will need to be provided with information about the context of each of the three decisions its making and calculating the correct action masks for each decision can get a little tricky. These problems are exacerbated even further when we think about how to model trading.
+    Whilst this is probably not too bad for placing settlements and roads, the first issue that arises is that some of the other available actions are a bit more complicated to model. For example, let's consider playing the "Year of Plenty" development card. When the card is played the user is allowed to choose two resources to take from the bank. This effectively makes it a composite action - you choose to play the card and you also need to select the two resources to receive. If we want to treat this as a single decision it means that there need to be 15 separate entries in the fixed size set of actions - one for each combination of resources (we can assume the order of resources is irrelevant). But this means that the network will have to learn about each of these 15 possibilities separately. So when it receives feedback from playing one of these actions (e.g. let's say that the agent went on to receive more reward than usual, so it wants to increase the probability of playing that action again in a similar situation), there is no direct mechanism that will lead to that feedback impacting the probabilities of the other 14 (quite similar) actions. Given that playing a "year of plenty" development card is quite rare anyway this will mean that the agent is likely to require an infeasible amount of experience to learn about all of these different possibilities independently. The alternative would be to break this down this down into three separate decisions - with one of the entries in the fixed size vector representing playing the card, and five entries corresponding to selecting a resource. Then once the card has been played, the simulator could mask out all actions that do not correspond to selecting a resource for the next two decisions. I suspect this might be preferable in this situation, however it's still not ideal because you have turned what should be a single action into three. Additionally, the network will need to be provided with information about the context of each of the three decisions its making and calculating the correct action masks for each decision can get a little tricky. These problems are exacerbated even further when we think about how to model trading resources.
   </p>
 
   <p class="l-middle">
@@ -603,14 +603,16 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   </p>
 
   <p class="l-middle">
-    As a quick technical aside, the RL algorithm used (PPO <d-footnote><a href="https://arxiv.org/abs/1707.06347" target="_blank">"Proximal Policy Optimization Algorithms"</a> - Schulman et al. 2017</d-footnote>) requires you to calculate the log-probability of the action taken. Note that this can easily be done with when using multiple action heads. For example imagine a composite action made up of an action type \(a_{\text{type}} \) and a secondary output from another head that depends on the action type, \(a_{\text{head 2}} \). We can write the probability of the composite action as:
-    $$ P(a_{\text{type}}, a_{\text{head 2}}) = P(a_{\text{head 2}} | a_{\text{type}}) P(a_{\text{type}}) $$
-    The first head outputs \( P(a_{\text{type}}) \) and if we feed in the sampled \(a_{\text{type}} \) to the second head then the second head outputs \( P(a_{\text{head 2}} | a_{\text{type}})  \). Then the log probability follows simply as:
-    $$ \log P(a_{\text{type}}, a_{\text{head 2}}) = \log P(a_{\text{head 2}} | a_{\text{type}}) + \log P(a_{\text{type}}) $$
+    As a quick technical aside, the RL algorithm used (PPO <d-footnote><a href="https://arxiv.org/abs/1707.06347" target="_blank">"Proximal Policy Optimization Algorithms"</a> - Schulman et al. 2017</d-footnote>) requires you to calculate the log-probability of the action taken. Note that this can easily be done with when using multiple action heads. For example imagine a composite action made up of an action type \(a_{\text{type}} \) and a secondary output from another head that depends on the action type, \(a_{\text{head two}} \). We can write the probability of the composite action as:
+    $$ P(a_{\text{type}}, a_{\text{head two}}) = P(a_{\text{head two}} | a_{\text{type}}) P(a_{\text{type}}) $$
+    The first head outputs \( P(a_{\text{type}}) \) and if we feed in the sampled \(a_{\text{type}} \) to the second head then the second head outputs \( P(a_{\text{head two}} | a_{\text{type}})  \). Then the log probability follows simply as:
+    $$ \log P(a_{\text{type}}, a_{\text{head two}}) = \log P(a_{\text{head two}} | a_{\text{type}}) + \log P(a_{\text{type}}) $$
   </p>
 
+  <p class="l-middle">So we get the log probability of the composite action simply by summing the log probabilities of each relevant action head!</p>
+
   <p class="l-middle">
-  Having said all of this, using multiple action heads in this way is not trivial, and I will dedicate a fair amount of time to try and explain in detail how this was implemented in practice. To get started with, I broke the basic actions down into the 13 types described in the table below:
+  Having said all of this, using multiple action heads in this way is not trivial, and I will now try and explain in detail how this was implemented in practice. To get started with, I broke the basic actions down into the 13 types described in the table below:
   </p>
 
 
@@ -732,7 +734,7 @@ The fourth head in the "development card" head - giving a distribution over the 
   <button onclick="zoomIn();" class="action_space_button">Zoom In</button>
   <button onclick="zoomOut();" class="action_space_button">Zoom Out</button>
   <button onclick="randomise_action_masks();" class="action_space_button">Resample Masks</button>
-  </center><br/><br/><br/><br/><br/><br/><br/>
+  </center><br/><br/><br/><br/><br/>
   </div>
 
 
@@ -740,15 +742,56 @@ The fourth head in the "development card" head - giving a distribution over the 
 
   <h2 id="nn-architecture">Observation Space/ Neural Network Architecture</h2>
 		
- <p class="l-middle"> Tile encoder, current player summary, other player summary
+ <p class="l-middle">Just as important as the action space is the observation space. The main objectives here are to represent the current state of the game in a way that is appropriate to be processed by a deep neural network and then design the actual architecture of that neural network so that the agent is able to learn effectively.
 		</p>
 
+  <p class="l-middle">
+To get started with this I decided to break the game state, or "observation", into three main parts. Firstly, features associated with each tile on the board are extracted and stacked together. The first of these is the tile's value - represented as a one-hot encoded vector (essentially each possible value is given its own dimension and the vector is zero everywhere except in the dimension corresponding to the actual value which is set to one). Using a one-hot encoded vector instead of just giving the neural network the actual value as a number is crucial because it is makes it much easier to learn a representation that treats each of the possible values differently (particularly as there is no simple ordering of values - 6 and 8 are "best" because they get rolled the most often, whilst 2 and 12 are "worst").<d-footnote>As an example, think about if we were trying to learn a function that mapped each different value to a random number. If we just provided a single input which was the actual value, the network would have to carefully learn a set of weights that map an input of 2 to a particular random number, and then 3 to another random number (which generally could be far away) without disturbing how it maps the input of 2, etc. It should be clear that the network has a lot more freedom to more easily learn such a function (or any other function) if the possible value inputs are one-hot encoded into a vector instead.</d-footnote>. Then there is the tile's resource (again one-hot encoded) and whether or not the tile contains the robber. Additionally, features for each of the corners attached to the tile are concatenated together (in a fixed order, e.g. top-left, top, top-right, bottom-right, bottom, bottom-left). These consist of the type of building placed there (None, Settlement or City) and which player owns them. For the player who owns them I use the notation "CW+1" to refer to the next player (going clockwise) from the current player making a decision, and "CW+2" for the player after, "CW+3" for the player after that.
+</p>
+
+<p class="l-middle">
+  The feature vectors for each tile come out being 61-dimensional. All of these individual tile feature vectors are then fed into a multi-head attention mechanism
+<d-footnote><a href="https://arxiv.org/abs/1706.03762" target="_blank">"Attention Is All You Need"</a> - Vaswani et al. 2017. A particularly nice implementation (along with a full video explanation) can be found <a href="https://github.com/gordicaleksa/pytorch-original-transformer" target="_blank">here</a>.</d-footnote>, which can gradually build up a representation of each tile that can depend on the other tiles on the board. In principle this allows the agent to learn complex representations of each tile that can take into account global information about the whole board (which should be useful - because in Settlers of Catan how "good" a particular tile is absolutely depends on the rest of the board, e.g. who has access to which resources/ how likely are they to roll on those resources etc). We then have a fully connected layer (which acts with the same weights applied to each tile representation independently), before repeating another multi-head attention mechanism and another fully connected layer. After this the 19 tile representations are concatenated and fed into a final fully connected layer, which gives the final output of the "tile module". Note that we use "ReLU" activation functions after each fully connected layer, and also use Layer Norm <d-footnote><a href="https://arxiv.org/abs/1607.06450" target="_blank">"Layer Normalization"</a> - Ba et al. 2016</d-footnote>layers after both the fully connected layers and multi-head attention layers (not shown in the diagram). Although I obviously haven't been able to run extensive tests, just from my initial experiments it does appear that these Layer Norm layers are very important (as well as using value function normalisation, which I will go into in the RL training section).
+  </p>
+
 <div class="l-screen-inset"><center>
-    <img src="images/tile_features_and_encoder.png" width="70%"/></center>
+    <img src="images/tile_features_and_encoder.png" width="70%"/></center><br/>
+  </div>
+
+<p class="l-middle">
+  Next we need to summarise the current state of each player in the game in more detail. For the "current" player (i.e. the player making the decision) we generate a fixed size vector of features. These include two inputs for the longest road (whether the current player has the longest road and the normalised length of their current longest road) and two inputs corresponding to the largest army (whether they currently have the largest army and the current size of their army - i.e. how many knight development cards they've played). Next there is a one-hot encoding of the current number of victory points the player has, and then a feature vector representing which harbours (if any) they currently own. Finally, a summary of both the current resources the player has as well as the production for each resource is included. For each resource a vector is given representing the number of that resource the player has. For simplicity I decided to limit this to a separate entry for 1, 2, 3, 4 or 5 of that resource, and then two additional entries for 6-8 and 8+ (if the player has none of that resource then obviously all entries will be zero). This is injecting a small amount of prior knowledge that the agent probably doesn't need to distinguish between cases where, say, it has 8 wood and situations where it has 10 wood, because that is a lot of wood! To give information about the resource production a vector for each resource indicating the number of settlements that provide the player with that resource when a given value is rolled is provided. So for example, if a player had a settlement on a wood tile with value 6 then the entry in the wood vector corresponding to 6 would be set to 1 (or 2 for a city, and if there are multiple settlements this could be even higher - so this vector does not have values constrained to just 0 and 1).
+</p>
+
+<p class="l-middle">
+  This, along with a vector summarising the amount of resources/development cards left in the bank is passed into a fully connected layer. The main thing missing here is information about the player's development cards, which is dealt with separately because the player can both own and have played a variable number of cards. As such, both the cards the player has in their hand at the moment and the cards that they've played before are encoded as variable length lists of integers. These are then passed through an embedding layer and then into a multi-head attention mechanism. After the attention mechanism the representations of each card are <i>aggregated into a fixed size vector</i> by taking the sum over the list dimension for all of the cards. This allows the agent to learn a fixed-size representation of a potentially variable length sequence of development cards, and is concatenated with the "main" current player output before being fed into another fully connected layer.
+</p>
+
+<p class="l-middle">
+The final thing that the agent needs to know about is information about the other players. For each player a feature vector similar to the one for the current player is constructed. The key difference is that the other player's resources/development cards are hidden (but a lot of things can be tracked - e.g. everyone knows when a player gathers a resource from someone rolling a particular number). To deal with this, I set up the environment in a way that keeps track of the minimum and maximum number of each resource that each player could have <i>given the publicly available information</i>. The feature vector for each other player then includes both of these. Additionally the feature vector includes information about the number of unplayed development cards, but nothing else. However the development cards that that player has played in the past is publicly available information, and this is processed with an embedding and multi-head attention layer in the same way as the development cards of the current player.
+</p>
+
+<p class="l-middle">
+The feature vectors for each of the three other players are all processed in parallel by the same fully connected layers for improved efficiency, before eventually being concatenated together along with the tile module output and current player output. This concatenated output is fed through another fully connected layer before being designated as the "observation module output" (so it is this output that is used as the main input to each of the action heads described in the previous section).
+</p>
+
+<div class="l-screen-inset"><center>
+    <img src="images/player_modules.png" width="85%"/></center>
+  </div>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/high_level_architecture.png" width="70%"/></center>
   </div>
 
 
+  <p class="l-middle"><br/><br/>
+    A lot of the features and architecture choices made here could have been done differently, and so I make no claims that this is definitely the best way to do things. Additionally as I have said, I simply don't have the computational resources available to experiment with a lot of the choices to see how they empirically effect the performance. Nevertheless, I am reasonably satisfied that the approach I've taken and the choices I've made are sensible (and as we shall see they do lead to some clear learning progress, at least).
+
+    MENTION LSTM
+  </p>
+
+
   <h2 id="ppo-training">RL (PPO) Training Details</h2>
+  only one "active" agent per game - others are playing with (generally) and older version of the policy. This is less data efficient but necessary to train a robust agent.  VF normalisation is important. Layer normalisation is important. Unclear how important annealing entropy/reward was - but regret it as implementation was wrong. Huge batch sizes. considered using lstm - initial version did. Decided against in the end.
 
   <h2 id="results">Results From RL Training</h2>
 

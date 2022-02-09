@@ -4354,7 +4354,7 @@ d-footnote-list a.footnote-backlink {
 
 </style>
 
-<h3>References</h3>
+<h3>References/ Footnotes</h3>
 <ol></ol>
 `, false);
 
