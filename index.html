@@ -811,7 +811,13 @@ The feature vectors for each of the three other players are all processed in par
 
 
   <p class="l-middle"><br/><br/>
+<<<<<<< HEAD
     A lot of the features and architecture choices made here could have been done differently, and so I make no claims that this is definitely the best way to do things. Additionally as I have said, I simply don't have the computational resources available to experiment with a lot of the choices to see how they empirically effect the performance. Nevertheless, I am reasonably satisfied that the approach I've taken and the choices I've made are at least sensible (and as we shall see they do lead to some clear learning progress). One other option that I initially experimented with was including an LSTM which I thought might be useful because there is some hidden information which means the current observation does not capture everything about the current state of the game. In the end I decided to remove this because (a) it didn't seem to make much difference in my initial quick experiments and (b) it's a bit tricky to integrate properly with the forward search method in a fully satisfactory way.
+=======
+    A lot of the features and architecture choices made here could have been done differently, and so I make no claims that this is definitely the best way to do things. Additionally as I have said, I simply don't have the computational resources available to experiment with a lot of the choices to see how they empirically effect the performance. Nevertheless, I am reasonably satisfied that the approach I've taken and the choices I've made are sensible (and as we shall see they do lead to some clear learning progress, at least).
+
+    MENTION LSTM.
+>>>>>>> c089cee58bcbc90040d7e381b85ecfdbe4262bb4
   </p>
 
   <h2 id="reward-fn">Reward Function</h2>
