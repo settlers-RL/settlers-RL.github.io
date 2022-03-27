@@ -41,6 +41,31 @@ d-figure > figure {
   margin-bottom: 0;
 }
 
+.hyperparameters {
+  border-collapse: true;
+  border-bottom: 1px solid black;
+}
+
+.hyperparameters tr:nth-child(even){background-color: #f2f2f2;}
+
+.hyperparameters tr:hover {background-color: #ddd;}
+
+.hyperparameters td {
+  border-right: 1px solid black;
+  border-left: 1px solid black;
+  border-bottom: 1px solid black;
+  text-align: center;
+}
+
+.hyperparameters th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: center;
+  background-color: #3c6082;
+  color: white;
+  border: 1px solid black;
+}
+
 .shaded-figure {
   background-color: hsl(0, 0%, 97%);
   border-top: 1px solid hsla(0, 0%, 0%, 0.1);
@@ -537,6 +562,7 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
           <li><a href="#action-space-app-div">Interactive Visualisation of Action Module</a></li>
         </ul>
         <div><a href="#nn-architecture">Observation Space/ Neural Network Architecture</a></div>
+        <div><a href="#reward-fn">Reward Function</a></div>
         <div><a href="#ppo-training">RL (PPO) Training Details</a></div>
         <div><a href="#results">Results from RL Training</a></div>
         <div><a href="#forward-search">Improving Performance with Forward-Search</a></div>
@@ -548,6 +574,7 @@ d-contents nav > div > a:hover, d-contents nav > ul > li > a:hover {
   <div>
   <h2 id="introduction">Introduction</h2>
   <p class="l-middle">
+    [SOMETHING ABOUT TARGET AUDIENCE]
   At the beginning of 2021, just after the announcement of another lockdown in the UK, I decided I needed a new side-project to work on. As a way to teach myself about RL a couple of years ago I built a simulator and trained an agent<d-footnote><a href="https://arxiv.org/abs/1808.10442" target="_blank">"Application of Self-Play Reinforcement Learning to a Four-Player Game of Imperfect Information"</a> - Henry Charlesworth (2018) (<a href="https://github.com/henrycharlesworth/big2_PPOalgorithm">Code</a>)</d-footnote> to play the card game 
   "Big 2", a reasonably complex four-player game of imperfect information. This worked surprisingly well, and having spent the intervening years carrying out research in RL (as a postdoc and now as a research scientist at Rowden Technologies) I thought that I'd like to try something more challenging still. In recent years RL has attracted a lot of attention
   due to the extremely impressive results that have been achieved in applying RL to games such as Go<d-footnote><a href="https://deepmind.com/blog/article/alphago-zero-starting-scratch" target="_blank">"AlphaGo Zero"</a> - DeepMind (2017)</d-footnote> , DOTA 2<d-footnote><a href="https://openai.com/five/" target="_blank">"OpenAI Five"</a> - OpenAI (2016-2019)</d-footnote> and Starcraft 2<d-footnote><a href="https://deepmind.com/blog/article/alphastar-mastering-real-time-strategy-game-starcraft-ii" target="_blank">"AlphaStar"</a> - DeepMind (2019)</d-footnote>. However all of these projects required huge teams of world class researchers/software engineers and 
@@ -784,16 +811,207 @@ The feature vectors for each of the three other players are all processed in par
 
 
   <p class="l-middle"><br/><br/>
-    A lot of the features and architecture choices made here could have been done differently, and so I make no claims that this is definitely the best way to do things. Additionally as I have said, I simply don't have the computational resources available to experiment with a lot of the choices to see how they empirically effect the performance. Nevertheless, I am reasonably satisfied that the approach I've taken and the choices I've made are sensible (and as we shall see they do lead to some clear learning progress, at least).
-
-    MENTION LSTM
+    A lot of the features and architecture choices made here could have been done differently, and so I make no claims that this is definitely the best way to do things. Additionally as I have said, I simply don't have the computational resources available to experiment with a lot of the choices to see how they empirically effect the performance. Nevertheless, I am reasonably satisfied that the approach I've taken and the choices I've made are at least sensible (and as we shall see they do lead to some clear learning progress). One other option that I initially experimented with was including an LSTM which I thought might be useful because there is some hidden information which means the current observation does not capture everything about the current state of the game. In the end I decided to remove this because (a) it didn't seem to make much difference in my initial quick experiments and (b) it's a bit tricky to integrate properly with the forward search method in a fully satisfactory way.
   </p>
+
+  <h2 id="reward-fn">Reward Function</h2>
+  Choosing the reward function is always more of an art than a science (as with many things to do with RL), although in competitive games where there is a clear winner it does become a bit easier. Obviously the main component of the reward is a large positive reward for the agent if they actually win the game (I arbitrarily chose +500). However, this is an extremely sparse learning signal - particularly since the time horizons involved in terms of the number of decisions per game is quite large. This means that it is useful to include a more dense reward signal as well, providing the agent with more regular feedback. I did this by including small positive rewards for things like gaining victory points, building settlements/cities, moving the robber, stealing resources and playing development cards, and a small negative reward for having to discard resources. Balancing these was done purely based on what I felt was reasonable, but obviously the main criteria was that they could never add up to anywhere close to the positive reward the agent receives for winning (just to ensure there could be no peverse situations where the agent learns a weird strategy where it still receives a lot of reward without actually winning the game). 
 
 
   <h2 id="ppo-training">RL (PPO) Training Details</h2>
-  only one "active" agent per game - others are playing with (generally) and older version of the policy. This is less data efficient but necessary to train a robust agent.  VF normalisation is important. Layer normalisation is important. Unclear how important annealing entropy/reward was - but regret it as implementation was wrong. Huge batch sizes. considered using lstm - initial version did. Decided against in the end.
+  <p class="l-middle">
+  Having described in detail how to deal with the complex action/observation space that Settlers of Catan has, the next thing is to actually implement the RL algorithm. I decided to go with PPO as the base RL algorithm for a number of reasons:
+</p>
+  <ol>
+    <li>It is a well established algorithm that has been shown to work well across a range of different environments.</li>
+    <li>In comparison to other RL algorithms it is reasonably robust to hyperparameter choices (however these can still have a huge impact on performance) and relatively stable (although again, this is only relative to other RL algorithms).</li>
+    <li>It scales well to running many processes in parallel to gather experience.</li>
+    <li>There are a number of high quality open-source implementations available that can serve as a good starting point.</li>
+  </ol>
+  <p class="l-middle">
+  As a general rule it is a bad idea to start implementing a deep RL algorithm from scratch. They are notoriously sensitive to seemingly minor implementation details that can have a huge impact on performance and trying to figure out exactly what small thing you've got wrong can be a painful experience. As such, I started from <a href="https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail" target="_blank">this</a> excellent Pytorch implementation, but obviously still needed to make some fairly significant modifications to get it working with this environment.
+</p>
+
+<p class="l-middle">
+One of the key differences between Settlers and the more standard environments that PPO is applied to is that it is a four-player game - which presents a number of challenges. Firstly, it makes everything non-stationary in the sense that the optimal policy depends significantly on the policies of the other players in the game. This means effectively that the environment changes over time as the opponents being played against learn to improve as well, which can often make the training process less stable. Additionally, it means that the agent really needs to learn a policy that can perform well against a variety of different opponents, and we must be careful to ensure it doesn't overfit to a particular set of opponents. To address this, I decided that when gathering a batch of data to train on only one of the four players would be "actively" controlled by the policy being trained, whilst the other three players would be controlled by earlier versions of the policy chosen at random (well, not completely at random - I decided to bias it so that more recent policies were more likely to be chosen). Note that because PPO is an <i>on-policy</i> RL algorithm the experience gathered by these other policies cannot be used in the training update. This does make the whole process significantly less data efficient but that is just a cost that has to be accepted to use PPO here, I think.
+  </p>
+
+  <p class="l-middle">
+    One technical detail that arises because of this is worth discussing. Most standard open-source implementations of PPO implement what I will call "synchronous" PPO. In this case, multiple CPU processes each containing their own copy of the environment run in parallel and are controlled by a main process. This main process has a single copy of the current policy, usually stored on a GPU, and receives observations from all of the processes at once. It then runs these through the policy as a batch, getting the actions for each environment before broadcasting them out to the relevant processes. Each process then runs the action given through its environment and sends back the next observation. This means that each process is effectively locked in step, and the main process can only get the next batch of actions once <i>every</i> process has finished and returned the next observation.
+  </p>
+
+  <p class="l-middle">
+    The approach has some advantages and some disadvantages. The main advantages are that it only requires a single copy of the policy on the main process which means less memory is needed and also that it allows for all of the observations to be processed as a batch on a GPU. For large policies and particularly when dealing with image observations when the forward pass of the network is still significantly expensive this can lead to a substantial boost in performance. The key disadvantage, however, is that if there is significant variation in the amount of time it can take to execute actions then processes can spend a lot of their time idly waiting until all of the processes finish (and note that this gets worse with the more processes that are running in parallel). The basic idea is shown on the left in the diagram below - if any of the processes have a particularly slow step (red) then this can have an effect on slowing down all of the other processes.<br/>
+  </p>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/semi_asynchronous_ppo.png" width="70%"/></center>
+  </div>
+
+  <p class="l-middle"><br/>
+    However, ultimately for our purposes here "synchronous" PPO just doesn't work. The main reason is that the time between each decision that the active agent has to make can vary wildly. This is because after the final decision of a player's turn they generally have to wait until all three of the other players have had their turns (each consisting of multiple decisions in general) before they get another decision to make. Addtionally, we want each process to have different opponents on them to ensure there is enough diversity in each batch so we don't strongly overfit. This requires that each process contains its own copies of the opponents policies. This meant that the PPO implementation needed to be modified to be "semi-asynchronous".
+  </p>
+
+  <p class="l-middle">
+    What this means in practice is that each process contains four policies - one for each player in the game (in fact due to memory constraints during training each process actually contained 5 games, with the same policies controlling the players for each of these). The "main" process sends out a request for each process to gather a specified amount of experience and each process is left to run independently until it has gathered this data. The processes all have to wait for the other processes to finish at the end (which is why I call this "semi-asynchronous" rather than fully asynchronous), but not after each decision, which is obviously far more efficient for our purposes here. The main process then combines all of this experience into a single large batch of data to train the main policy on. Then it selects new opponent policies for each process and broadcasts these out along with the updated main policy, before requesting each process to gather a new batch of data.
+  </p>
+
+  <p class="l-middle">
+    The only real downside of this approach is that each process has to have its own copy of multiple policies, which can get quite memory intensive. Also generally this means that when acting you won't be able to utilise a GPU to run batches of forward passes in parallel, but this isn't so bad as really it is the backward passes required during training that are most expensive and benefit the most from a GPU.
+  </p>
+
+  <p class="l-middle">
+    Beyond this the only other significant/relevant changes I made to the base PPO implementation was to implement value function normalisation and to allow for returns to be recomputed after each optimisation epoch (see table below). This is something that was suggested in this<d-footnote><a href="https://arxiv.org/abs/2006.05990" target="_blank">What Matters in On-Policy Reinforcement Learning? A Large Scale Empirical Study</a> - Andrychowicz et. al 2020. A really useful paper that studies how various implementation details/hyperparameter choices effect the performance of the most popular on-policy RL algorithms on a variety of environments.</d-footnote> extremely useful paper that also helped with a lot of the hyperparameter selection as well. The basic idea is just to normalise the value predictions so that the value network we're training doesn't have to learn to predict really large values. This is because generically it's easier (particularly when applying things like layer normalisation in earlier layers) for a neural network to learn to output targets that are smaller (ideally having them distributed with mean zero and standard deviation 1). The standard way to do this is to keep a running mean and standard deviation of the unnormalised value predictions throughout the experiment and use these to normalise/denormalise the value outputs/predictions as necessary. The issue with this is that as the agent improves often the range of values it experiences can change significantly - so the old values that are still apart of the running average can mess things up. I have found with other environments that using a moving window to only average over relatively recent experience can often work a lot better, although in the end I simply decided to run a short experiment and look at the distribution of state values the agent was seeing, and then use the average/standard deviation of this as <i>fixed</i> parameters for the duration of a much longer experiment. My reasoning was that this should be more stable, at the cost of potentially not being as close to having the values observed being distributed with mean 0 and standard deviation 1. The reality is I don't know if this is better or not as I don't have the resources to run proper ablation studies, but it seems to work well enough. I did also implement truncated back-propagation <d-footnote><a href="https://machinelearningmastery.com/gentle-introduction-backpropagation-time/" target="_blank">See here</a> for a good description of back-propagation through time and truncated back-propagation through time.</d-footnote> through time but then didn't end up using an LSTM, so this was irrelevant.
+  </p>
+
+  <p class="l-middle">
+    Other than these changes, the other key decisions to make are what values of the hyperparameters used in PPO to use. Even though PPO is one of the more robust RL algorithms, it is still well known that the performance can be significantly impacted by the choices of hyperparameters. Frustratingly there are no definitive rules that can guide which hyperparameter values will work well on a given environment and whenever possible the best approach is to simply run hyperparameter sweeps over at least some of the key parameters. However, in this case this simply isn't feasible and so I had to rely on my experience with other environments to effectively make some "informed guesses". The main hyperparameters considered along with a description and some justification (where possible) for the values chosen are detailed in the table below.
+  </p>
+
+  <div class="l-screen-inset"><center>
+    <table class="hyperparameters" width="90%">
+<thead>
+  <tr>
+    <th width="15%">Hyperparameter</th>
+    <th width="40%">Description</th>
+    <th width="5%">Value chosen</th>
+    <th width="40%">Comment</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td><b>Number of Processes</b></td>
+    <td>The number of processes that run in parallel when gathering a batch of experience. Each process runs each of its assigned environments to gather a fixed number of decisions made by the agent being trained.</td>
+    <td>128</td>
+    <td>Generally speaking, the more processes the better. But obviously there are constraints based on available resources (number of CPUs and memory). Also as each process has to wait for all other processes once it has gathered its specified amount of decisions a very large number of processes can lead to significant idle time. This is why when training with a very large amount of available compute it's usually better to implement a fully asynchronous version of PPO.</td>
+  </tr>
+
+  <tr>
+    <td><b>Number of Environments per Process</b></td>
+    <td>The number of games each process has going on at once. Each game is controlled by the same set of neural networks (one active player for which we are gathering data, and three networks using an earlier versions of the policy). Note that they can still control different players in each game (e.g. the colour/order in which they play is still different in each game).</td>
+    <td>5</td>
+    <td>Ideally we want to be gathering data from as many games as possible so that each batch contains a wide variety of situations for the agent to be in (to help protect against overfitting). It would probably be preferable for each game to be on its own process so that each game is being played against a different set of opponents, however because each process has to have 4 copies of a neural network on this leads to large memory consumption. Having multiple games per process increases the variety of experience gathered whilst reducing the amount of memory required.</td>
+  </tr>
+
+  <tr>
+    <td><b>Number of Decisions (per Environment per Batch)</b></td>
+    <td>The number of decisions the agent being trained (i.e. the agent with the most recent policy) should make in each game on each process.</td>
+    <td>200</td>
+    <td>So the total batch size (in terms of the number of decisions made) is 128 x 5 x 200 = 128000.</td>
+  </tr>
+
+  <tr>
+    <td><b>Number of Epochs of Optimisation per Batch</b></td>
+    <td>The number of "epochs" (i.e. full passes through the batch of data) of optimisation. That is, given the full batch of data, an epoch of optimisation involves dividing the data up (at random) into a number of minibatches. Each of these minibatches is then passed through the policy being trained and used to calculate the gradients of the networks parameters with respect to the PPO loss.</td>
+    <td>10</td>
+    <td>I have seen values between 3 and 10 used for different environments. Ideally this is a hyperparameter that should be tuned.</td>
+  </tr>
+
+  <tr>
+    <td><b>Number of Minibatches per Epoch</b></td>
+    <td>The number of minibatches each epoch is broken up into (so each epoch consists of this many gradient updates to the model).</td>
+    <td>64</td>
+    <td>So each minibatch is made up of 128000 / 64 = 2000 samples. Whilst I think this is reasonable, I have to say I'm not completely sure.</td>
+  </tr>
+
+  <tr>
+    <td><b>Discount Factor (\(\gamma\))</b></td>
+    <td>How much future rewards are effectively discounted when estimating values (i.e. the sum of future rewards is taken to be \( \sum_{t'=t}^T \gamma^{t'-t} r_{t'} \) rather than just \( \sum_{t'=t}^T r_{t'} \) )</td>
+    <td>0.999</td>
+    <td>Having a value slightly less than one helps with stability, even with finite length episodes. However given that we care about optimising over fairly long time horizons we don't want it to be too much less than 1. Possibly we could have gotten away with a slightly lower value (say 0.995 or 0.997), which might have helped with stability. A rough rule of thumb is that you want the time horizon over which you're interested in (\(\text{num_steps} \)) to satisfy \( \text{num_steps} \sim \frac{1}{1-\gamma} \), although I'm not sure if this holds to the same extent when the main reward you care about is sparse and at the final step so I tend to verge on the cautious side of making \( \gamma \) a bit larger in those situations.</td>
+  </tr>
+
+  <tr>
+    <td><b>Generalised Advantage Estimation (GAE) Parameter (\(\lambda\))</b></td>
+    <td>Without going into full detail (see the original paper <d-footnote><a href="https://arxiv.org/abs/1506.02438" target="_blank">High-Dimensional Continuous Control Using Generalized Advantage Estimation</a> - Schulman et al. 2015</d-footnote>), GAE combines the observed rewards with the current state-value function to estimate the expected returns the agent will receive from each state under the current policy. The \( \lambda \) parameter is used to balance the bias and the variance of the obtained estimates.</td>
+    <td>0.95</td>
+    <td>This is a very commonly used value across many environments. I have found with experiments on other environments that actually other values can work slightly better, but without performing expensive hyperparameter sweeps this is always a good default value.</td>
+  </tr>
+
+  <tr>
+    <td><b>Clipping Parameter (\(\epsilon\))</b></td>
+    <td>A parameter used in PPO to control how much the policy is able to change in a single update. Imposing this (soft) constraint means that the policy cannot change too much in a single update and therefore cannot completely overfit to the current batch of data that's been gathered.</td>
+    <td>0.2</td>
+    <td>Often a parameter that is explored in a hyperparameter sweep. Values are usually between 0.1 and 0.3 for most environments but 0.2 is a common value and a reasonable default.</td>
+  </tr>
+
+  <tr>
+    <td><b>Recompute Returns after Each Epoch</b></td>
+    <td>In the standard PPO implementation GAE is applied once per batch just after it's been gathered. This gives a set of estimated values, returns and advantages associated with each state in the batch and these are kept fixed throughout the whole update. However, after each minibatch both the policy and the value network have changed slightly. This means the value/advantage estimates are suddenly out of date. It's not really feasible to recompute the returns after each minibatch update, but we can recompute them after each epoch at least. </td>
+    <td>True</td>
+    <td>It has been shown that this can often give a reasonable boost in performance and so is worth including by default.</td>
+  </tr>
+
+  <tr>
+    <td><b>Entropy Loss Coefficient</b></td>
+    <td>A coefficient managing the strength of the contribution of the policy's entropy to the overall loss function being trained on. The idea is that the larger this is the more the policy will be encouraged to explore.</td>
+    <td>0.01</td>
+    <td>I did initially consider annealing this down over time, so that gradually the agent has less pressure to ensure high entropy over its actions, but I decided not to in the end.</td>
+  </tr>
+</tbody>
+</table>
+</center>
+  </div>
 
   <h2 id="results">Results From RL Training</h2>
+  <p class="l-middle">
+    So, how did this all work out? For the final run I ran an experiment for roughly a month on a 32-core desktop machine with 128GB of RAM and a GTX3090 GPU. The answer is basically - it definitely learned some stuff and absolutely got better over time, but it still doesn't feel close to the standard of a good human player (having said that, I did come dangerously close to losing a game against it the other day). This is slightly disappointing, but perhaps not really surprising - we know that current deep RL algorithms are greedy and require a huge amount of experience to play games such as Chess/Go to the standard of a human - and ultimately the amount of compute I threw at it is miniscule in comparison to projects such as AlphaGo and the OpenAI DOTA 2 bot. Another potential reason for the slow progress is that I did not have any human data to start from, which can make a massive difference. Certainly both AlphaGo and AlphaStar made use of a large dataset of human gameplay to train an initial policy to imitate before running the RL algorithm (although I believe this <i>wasn't</i> done with AlphaZero).
+  </p>
+
+  <p class="l-middle">
+    Having played a few games against the trained agent (plus forward-search, see next section), I can give a rough outline of some of the behaviours I've observed. The first thing is that it definitely has not yet mastered trading, which is not really surprising given that this is one of the more complicated aspects of the game. The agent still wastes a lot of time proposing trades that the other player isn't actually able to accept (I definitely regret not masking out these actions as invalid), and more often than not if the trade is possible it's also massively in its own favour and so no rational agent would accept. As such, a majority of the allowed trades that get proposed immediately get rejected, although <i>not always</i>. I think the fact that the agents still sometimes accept trades completely against their interests (even with low probability) encourages the agents to continue to propose unfair trades - because there is effectively no cost to doing so and sometimes they get a nice benefit. As such, if you do want to play against the trained agent (available on the Github repo linked to in the contents) I would recommend turning off trading, because frankly it's a bit tiresome having to constantly reject stupid trades. 
+  </p>
+
+  <p class="l-middle">
+    With the forward-search included I've found that generally the initial settlement placements seem fairly reasonable, which is promising and definitely suggests the agent has learned something about the relative value of different positions on the board. However in the later game I have definitely seen some questionable road/settlement placements which don't make a lot of sense, so clearly there is a lot of room for improvement.
+  </p>
+  <p class="l-middle">
+Another interesting thing I've noticed is that the agents rarely get caught holding more than 7 resources when a 7 is rolled, and so rarely have to discard any resources. So they definitely have learned that having to discard resources is bad, however they sometimes will do quite stupid things to get rid of them (e.g. exchanging 4 stone for 1 stone...). In terms of things like moving the robber, the agents usually do this when they have the chance and will always steal a resource, which is good. However they do sometimes move the robber to a tile which doesn't really benefit them (e.g. if they also have a settlement that gets blocked by it).
+  </p>
+
+  <p class="l-middle">
+    To look at the results and learning progress more quantitatively, I carried out a couple of evaluation runs looking at the agent at different points in the training process playing against agents slightly earlier in the training process. The final experiment ran roughly 3500 full updates (each update corresponds to multiple epochs of optimisation on a batch of experience of 128000 decisions - so roughly 450 million decisions in total). Every 100 updates I played a number of games (1200) with the current policy at that point against 3 copies of the policy at either 125 updates before or 250 updates before (obviously this choice is somewhat arbitrary). If all the policies were completely equal we would of course expect each policy to win 25% of the games, so we can look to see what fraction of games are won by the "current policy" when it plays against multiple copies of an earlier policy. If this is consistently above 25%, it gives a good indication that the policy is still learning and improving. The results of this evaluation are plotted below.
+  </p>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/training_results.png" width="70%"/></center>
+  </div>
+
+  <p class="l-middle">
+    We can see that initially there is significant learning progress, clearly above the baseline winrate. It is also reassuring to see that the winrate against the policies 250 updates ago is generally above the winrate against the more recent policies (125 updates ago). Unfortunately about half-way through the experiment the computer crashed and training had to be reinitialised. Annoyingly I realised I hadn't set things up properly to reinitialise the distribution of opponent policies that were being sampled and I only had copies of the previous policies every 25 updates. This meant I had to try and construct an ad-hoc distribution based on the available policies that was significantly different from what would have been in the experiment when it was running. It certainly appears like this had a big impact - with the win rate briefly falling below the baseline. However, eventually things stablised and we got back to a situation where the policy seemed to be improving again, although interestingly not as quickly as before. This might just be a natural slowing down in the speed of improvement, although it is slightly suspicious/strange that we never get back to the same rate of improvement we were seeing before the crash.
+  </p>
+
+  <p class="l-middle">
+    Also plotted is the average total number of decisions made per game (here the total includes decisions by <i>all four players</i>). Up until a certain point it is reasonable to assume that shorter game lengths correspond to agents that are learning to improve (as they are learning to win the game more quickly), although obviously we wouldn't expect this trend to continue indefinitely. As such, it is quite promising that even towards the end of training there is still a clear trend down towards shorter games, suggesting that the agents are still improving.
+  </p>
+
+  <p class="l-middle">
+    Another thing which is quite interesting to look at is how the agent's certainty about its decisions changes throughout training. From the evaluation runs carried out above I saved the probability of each action that was actually selected (for each relevant of the relevant action heads). We can then use these to gain some insight into how often the agent chooses to play different action types and how this changes throughout training.
+  </p>
+
+  <p class="l-middle">
+    Firstly we can focus just on the action types that the agent chooses to play (taking the probability just from the action type head). Each plot below shows the type probability vs. the number of action types that were available when the decision was made. Note that this is the probability of that action type <i>when that action type was actually selected</i>, which means that the values will be somewhat biased to be larger, but can still give an interesting insight into what's going on.
+  </p>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/action_types_p2.gif" width="60%"/></center>
+  </div>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/action_types_p1.gif" width="60%"/></center>
+  </div>
+
+  <p class="l-middle"><br/>
+    As would be expected, we can see that early on during training there is a wide range of type probabilities for each action type. However as training goes on, the certainty with which the agent plays certain actions (in particular placing a settlement, upgrading to a city and moving the robber) increases a lot. Whilst this certainly makes some sense, the fact that the probabilities get so close to 1 suggests that perhaps the agent is overconfident in its choices.
+  </p>
+
+  <p class="l-middle">
+    We can also look at the probability of some of the other heads. Below are plots for the probability of choosing a particular settlement location (when that settlement location is chosen), choosing a particular road placement, a particular city placement and a particular placement for where to move the robber. For all of these we see that the agent gradually becomes more confident about its decisions throughout training - although it would appear at different rates for different action types.
+  </p>
+
+  <div class="l-screen-inset"><center>
+    <img src="images/action_probabilities.gif" width="80%"/></center>
+  </div>
 
   <h2 id="forward-search">Improving Performance With Forward Search</h2>
 
