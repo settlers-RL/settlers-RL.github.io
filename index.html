@@ -810,13 +810,7 @@ The feature vectors for each of the three other players are all processed in par
 
 
   <p class="l-middle"><br/><br/>
-<<<<<<< HEAD
     A lot of the features and architecture choices made here could have been done differently, and so I make no claims that this is definitely the best way to do things. Additionally as I have said, I simply don't have the computational resources available to experiment with a lot of the choices to see how they empirically effect the performance. Nevertheless, I am reasonably satisfied that the approach I've taken and the choices I've made are at least sensible (and as we shall see they do lead to some clear learning progress). One other option that I initially experimented with was including an LSTM which I thought might be useful because there is some hidden information which means the current observation does not capture everything about the current state of the game. In the end I decided to remove this because (a) it didn't seem to make much difference in my initial quick experiments and (b) it's a bit tricky to integrate properly with the forward search method in a fully satisfactory way.
-=======
-    A lot of the features and architecture choices made here could have been done differently, and so I make no claims that this is definitely the best way to do things. Additionally as I have said, I simply don't have the computational resources available to experiment with a lot of the choices to see how they empirically effect the performance. Nevertheless, I am reasonably satisfied that the approach I've taken and the choices I've made are sensible (and as we shall see they do lead to some clear learning progress, at least).
-
-    MENTION LSTM.
->>>>>>> c089cee58bcbc90040d7e381b85ecfdbe4262bb4
   </p>
 
   <h2 id="reward-fn">Reward Function</h2>
@@ -1019,14 +1013,51 @@ Another interesting thing I've noticed is that the agents rarely get caught hold
   </div>
 
   <h2 id="forward-search">Improving Performance With Forward Search</h2>
-		
   <p class="l-middle">
-    ....
+    An often overlooked detail about some of RL's greatest successes is that many of them require search on top of the RL policy in order to actually surpass human performance (this is certainly true for AlphaGo and AlphaZero). This usually takes the form of a "Monte Carlo Tree Search"<d-footnote><a href="https://www.analyticsvidhya.com/blog/2019/01/monte-carlo-tree-search-introduction-algorithm-deepmind-alphago/" target="_blank">See here</a> for a good introduction to Monte Carlo Tree Search and how it is used in AlphaGo.</d-footnote>, however this is easiest to perform when the environment is fully observable and deterministic. Although there are ways to do MCTS with hidden information and non-deterministic actions this would be tricky (especially in a 4-player game), and so I opted for something a bit simpler.
+  </p>
+
+  <p class="l-middle">
+    Rather than perform a proper tree search I instead decided to just search over a set of sampled actions available in the current state, making use of the current policy to run monte carlo simulations of how the game could play out for \(T \) steps into the future. That is, the search process itself is only conducted over the actions available from the root node (the current state), and then rollouts are carried out into the future using the current policy for all of the agents to make decisions. For each rollout we can then use generalised advantage estimation to estimate the value of the state that's reached after the initial action we're considering, which can then be stored along with the visit count for that initial action. This can then be used to choose which initial action is chosen for the next simulation to run forwards using UCB1 (in the same way that actions are chosen in MCTS, except here we are only performing this search at the root of the tree of actions).
+  </p>
+
+  <p class="l-middle">
+    To be able to parallelise this search, we make use of the approach outlined in the "WU-UCT" paper<d-footnote><a href="https://arxiv.org/pdf/1810.11755.pdf" target="_blank">Watch the Unobserved: A Simple Approach to Parallelizing Monte Carlo Tree Search</a>, Liu et al. 2018. Code available <a href="https://github.com/liuanji/WU-UCT" target="_blank">here.</a></d-footnote>. The most naive parallelisation of MCTS (or the version of search we're using here) can run into issues because it uses the number of simulations finished for each action when choosing which action to sample next (in a deterministic manner). However, since the simulation step is much more expensive that the choosing the action step, if we are running many searches in parallel it is possible that many of the processes will choose the same initial action before any of the other simulations finish and can update the number of simulations finished. WU-UCT proposes a simple workaround for this - just make a note of how many simulations have started with that initial action but not yet finished, and replace the number of finished simulations for that action in the UCB formula with the number of simulations finished plus the number of simulations started instead. Whilst this is still not perfect, they show this works much better than the naive approach.
+  </p>
+
+  <p class="l-middle">
+    One of the nice things about the action head architecture being used is that it's possible to pick actions conditional on a given action type. This allows us to sample a wide range of initial actions, even if they are very unlikely to be picked by the policy be default. In particular, I ensured that any action type that was available is always sampled at least once (and possibly more). Also, the action masks can be modified to ensure the policy never samples the exact same action twice. Additionally, I decided that in the initial placement phase of the game it would be a good idea to consider all actions available (and give the agent more thinking time than usual, since these are particularly important decisions). The full logic of how the actions to consider for each decision are sampled is contained <a href="https://github.com/henrycharlesworth/settlers_of_catan_RL/blob/master/RL/forward_search_policy/sample_actions_fn.py" target="_blank">here</a>.
+  </p>
+
+
+  <div class="l-screen-inset"><center>
+    <img src="images/forward_search.png" width="90%"/></center>
+  </div>
+		
+  <p class="l-middle"><br/>
+    A couple of other important details are worth mentioning here. The first is that this forward search method (and indeed any search method like this that performs search with the actual environment rather than a learned model of the environment) requires that the simulator can save its current state and then reload it later. This is one of the reasons I was keen to implement my own simulator, so I had complete control over doing this. The other thing is that Settlers of Catan has some hidden information in the sense that you don't necessarily know exactly what resources/development cards the other players have. This is relevant in the forward search because you can't (or at least shouldn't) just reset the state of the simulation exactly because the player making the decision doesn't actually know everything about the current state of the simulation. As such, I had to implement a "randomise uncertainty" method, which randomises the other player's unknown resources/development cards (based on the best information the decision-making agent currently has).
+  </p>
+
+  <p class="l-middle">
+    To test this, I ran 100 games with one agent using this forward search method (32 processes in parallel, 10 second base thinking time per decision, using the final policy from training for forward simulations) against three copies of the final policy. The forward search agent won 47/100, showing that there is a clear improvement here over the RL agent alone.
+  </p>
+
+  <p class="l-middle">
+    In an ideal world, I would have liked to do something more similar to AlphaZero, where the forward search is used during training to collect experience and train. This can lead to a much stronger policy (as well as a much better learned value function), but requires an enormous amount of compute so just wasn't feasible. Additionally, it would definitely be interesting to look at a stronger MCTS search method that actually searches beyond just the root node (and so doesn't have to rely fully on the policy alone for future simulations) and see if this makes a signficant difference.
   </p>
 
   <h2 id="conclusions">Conclusions</h2>
-  
-  
+<p class="l-middle">
+  Overall this has been a really interesting project and I have learned a lot - particularly about how to deal with complex action spaces in RL. Whilst there is a part of me that is a bit disappointed that the final agent is still not at the level of a good human, the fact that it clearly learned some interesting behaviour and improved significantly throughout training is pretty cool, especially given the relatively modest amount of computational resources used.
+</p>
+
+<p class="l-middle">
+  One thing I think that I might have done differently if I were starting from scratch is to remove trading because I think that was probably a bit ambitious. Whilst I think the approach I took was interesting and could maybe work well if I could run some larger scale experiments, I think the fact that the agents waste so much time proposing stupid trades could have had a significant effect on training - and it might have been possible for the agents to learn more efficiently if this was just removed. Obviously trading is a big part of Catan, but even without trading it is still a very challenging game. At some point I may just start another training run with trading turned off to see if this is true or not, but atm I need my desktop for other things!
+</p>
+
+<p class="l-middle">
+Anyway, I hope this article was interesting and potentially useful to anyone looking to apply deep RL to other environments. Please feel free to ask any questions in the comments below and I'll do my best to answer them!
+  </p>
   
   
 </d-article>
